@@ -4,6 +4,20 @@
 #define VISP_TASK_TASK_HPP
 
 #include "visp/TaskBase.hpp"
+#include <visp/vpConfig.h>
+#include <visp/vpMath.h>
+#include <visp/vpHomogeneousMatrix.h>
+#include <visp/vpFeaturePoint.h>
+#include <visp/vpFeatureDepth.h>
+#include <visp/vpPoint.h>
+#include <visp/vpServo.h>
+#include <visp/vpFeatureBuilder.h>
+#include <visp/vpException.h>
+#include <visp/vpMatrixException.h>
+#include <visp/vpServoDisplay.h>
+#include <visp/vpPose.h>
+#include <visp/vpAdaptiveGain.h>
+#include <math.h>
 
 namespace visp{
 
@@ -16,19 +30,49 @@ namespace visp{
      * The name of a TaskContext is primarily defined via:
      \verbatim
      deployment 'deployment_name'
-         task('custom_task_name','visp::Task')
+     task('custom_task_name','visp::Task')
      end
      \endverbatim
      *  It can be dynamically adapted when the deployment is called with a prefix argument.
      */
     class Task : public TaskBase
     {
-	friend class TaskBase;
-    protected:
+        friend class TaskBase;
+        protected:
 
+        visp::pose c_pose_r;
 
+        vpCameraParameters cam_cal;
+        vpServo task;
+        vpPoint point[4];
+        vpPoint P;
 
-    public:
+        //homogeneus matrices
+        vpHomogeneousMatrix cMo;
+        vpHomogeneousMatrix cdMo;
+        vpHomogeneousMatrix cdMc;
+        vpHomogeneousMatrix cMe;
+        vpPose pose;
+
+        //features
+        vpFeatureDepth depth;
+        vpFeaturePoint p;
+        vpFeaturePoint pd;
+        vpFeatureThetaU tu;
+        vpFeatureTranslation t;
+        double Zd;
+
+        vpMatrix eJe ;
+        vpVelocityTwistMatrix cVe;
+
+        bool new_desired_pose;
+
+        void updateFeatures(std::vector<base::Vector2d> corners);
+        void updateDesiredPose();
+        void setGain();
+        void writeVelocities(vpColVector v);
+
+        public:
         /** TaskContext constructor for Task
          * \param name Name of the task. This name needs to be unique to make it identifiable via nameservices.
          * \param initial_state The initial TaskState of the TaskContext. Default is Stopped state.
@@ -44,7 +88,7 @@ namespace visp{
 
         /** Default deconstructor of Task
          */
-	~Task();
+        ~Task();
 
         /** This hook is called by Orocos when the state machine transitions
          * from PreOperational to Stopped. If it returns false, then the
@@ -55,8 +99,8 @@ namespace visp{
          * in the task context definition with (for example):
          \verbatim
          task_context "TaskName" do
-           needs_configuration
-           ...
+         needs_configuration
+         ...
          end
          \endverbatim
          */
