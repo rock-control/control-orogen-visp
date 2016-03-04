@@ -1,0 +1,41 @@
+name "visp"
+
+using_library "visp"
+using_library "frame_helper"
+
+import_types_from "base"
+import_types_from "frame_helper/Calibration.h"
+import_types_from "vispTypes.hpp"
+import_types_from "auv_control/6dControl.hpp"
+
+task_context "Task" do
+needs_configuration
+
+    # Select the visual servoing architecture: IBVS, PBVS or HVS(2 1/2D)
+    property("architecture", "visp/architecture")
+    # Set the gain of the visual controller
+    property("gain", "float")
+    # Switch between adaptive or manual gain
+    property("use_adaptive_gain", "bool")
+    # Switch between adaptive or manual gain
+    property("adaptive_gains", "visp/adaptiveGains")
+    # Camera calibration parameters
+    property("camera_parameters", "frame_helper/CameraCalibration")
+    # Marker size
+    property("marker_size", "double")
+    # Sets the spatial transformation between the camera frame and the robot frame
+    property("pose_camera_robot", "visp/pose")
+
+    # Position setpoint in respect to the marker frame
+    input_port "cmd_in", "/base/LinearAngular6DCommand"
+    # Input data to the controlller
+    input_port "marker_corners", "std/vector<base::Vector2d>"
+    # The control signal, velocities.
+    output_port "cmd_out", "base/LinearAngular6DCommand"
+
+    port_driven "marker_corners"
+
+    runtime_states :WAITING_FIRST_MEASUREMENTS, :CONTROLLING
+
+end
+
