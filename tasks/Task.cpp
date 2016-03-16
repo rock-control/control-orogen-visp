@@ -2,6 +2,8 @@
 
 
 #include "Task.hpp"
+#include <visp/vpPixelMeterConversion.h>
+#include <visp/vpFeatureBuilder.h>
 
 using namespace visp;
 
@@ -71,7 +73,25 @@ bool Task::configureHook()
     //eJe[5][3] = 1;
     task.set_eJe(eJe);
 
-    return true;
+    // Set the pose transformation between the camera and the robot frame
+    Eigen::Affine3d camera2body;
+    _camera2body.get(base::Time::now(), camera2body);
+
+    //Computes the Velocity Twist Matrix from the spatial transformation between the camera and the robot
+    //translation
+    vpTranslationVector cto(camera2body.translation()[0],
+                            camera2body.translation()[1],
+                            camera2body.translation()[2]);
+    //rotation
+    base::Quaterniond q(camera2body.rotation());
+    vpRotationMatrix cRo(vpQuaternionVector(q.x(), q.y(), q.z(), q.w()));
+
+    //build the homogeneous matrix
+    cMe.buildFrom(cto, cRo); 
+    //build and set the velocity twist matrix
+    cVe.buildFrom(cMe);
+    task.set_cVe(cVe);
+
     return true;
 }
 
@@ -86,24 +106,30 @@ void Task::updateHook()
 {
     TaskBase::updateHook();
 
+    //read input ports
     std::vector<base::Vector2d> corners;
-    _marker_corners.read(corners);
+    base::LinearAngular6DCommand setpoint;
+    bool no_corners = (_marker_corners.read(corners) == RTT::NoData);
+    bool no_setpoint = (_cmd_in.read(setpoint) == RTT::NoData);
 
-    if(state() == RUNNING)
+    //set the state CONTROLLING only if there is setpoint and detected corners
+    if (no_corners) 
     {
-        state(WAITING_FIRST_MEASUREMENTS);
+        state(WAITING_CORNERS);
     }
-
-    if (corners.size() > 0 && state() == WAITING_FIRST_MEASUREMENTS)
+    else if (no_setpoint)
     {
-        // Sets the desired position of the visual feature (reference point)
-        updateDesiredPose();
-        updateFeatures(corners);
+        state(WAITING_SETPOINT);
+    }
+    else if (state() != CONTROLLING)
+    {
         state(CONTROLLING);
     }
-    else if (corners.size() > 0 && state() == CONTROLLING)
+
+    if (state() == CONTROLLING)
     {
-        updateDesiredPose();
+        // Sets the desired position of the visual feature (reference point)
+        updateDesiredPose(setpoint);
         updateFeatures(corners);
 
         // Update this jacobian in the task structure. It will be used to compute
@@ -120,7 +146,6 @@ void Task::updateHook()
         v = task.computeControlLaw() ;
 
         writeVelocities(v);
-        corners.clear();
     }
 }
 
@@ -214,29 +239,20 @@ void Task::updateFeatures(std::vector<base::Vector2d> corners)
 
 }
 
-void Task::updateDesiredPose()
+bool Task::updateDesiredPose(base::LinearAngular6DCommand setpoint)
 {
-    // Initialise a desired pose to compute s*, the desired 2D point features
-    base::LinearAngular6DCommand setpoint;
-    if (_cmd_in.read(setpoint) == RTT::NewData)
-    {
-        vpTranslationVector cdto(setpoint.linear[0], setpoint.linear[1], setpoint.linear[2]);
-        vpRxyzVector cdro(setpoint.angular[0], setpoint.angular[1], setpoint.angular[2]);
+    vpTranslationVector cdto(setpoint.linear[0], setpoint.linear[1], setpoint.linear[2]);
+    vpRxyzVector cdro(setpoint.angular[0], setpoint.angular[1], setpoint.angular[2]);
 
-        //Build the rotation and homogeneus matrix according to desired pose
-        vpRotationMatrix cdRo(cdro); // Build the rotation matrix
-        cdMo.buildFrom(cdto, cdRo); // Build the homogeneous matrix
+    //Build the rotation and homogeneus matrix according to desired pose
+    vpRotationMatrix cdRo(cdro); // Build the rotation matrix
+    cdMo.buildFrom(cdto, cdRo); // Build the homogeneous matrix
 
-        P.track(cdMo);
-        vpFeatureBuilder::create(pd, P);
-        Zd = P.get_Z();
-    }
-    else
-    {
-        exception(MISSING_SETPOINT);
-        throw std::runtime_error("There is no setpoint available");
-    }
+    P.track(cdMo);
+    vpFeatureBuilder::create(pd, P);
+    Zd = P.get_Z();
 
+    return true;
 }
 
 void Task::setGain()

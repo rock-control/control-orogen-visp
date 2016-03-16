@@ -38,8 +38,7 @@ needs_configuration
         max_latency 0.1
     end
 
-    runtime_states :WAITING_FIRST_MEASUREMENTS, :CONTROLLING
-    exception_states :MISSING_SETPOINT
+    runtime_states :WAITING_SETPOINT, :WAITING_CORNERS, :CONTROLLING
 
 end
 

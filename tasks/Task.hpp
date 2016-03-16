@@ -4,20 +4,17 @@
 #define VISP_TASK_TASK_HPP
 
 #include "visp/TaskBase.hpp"
-#include <visp/vpConfig.h>
-#include <visp/vpMath.h>
-#include <visp/vpHomogeneousMatrix.h>
+#include <visp/vpCameraParameters.h>
+#include <visp/vpServo.h>
+#include <visp/vpPoint.h>
+#include <visp/vpPose.h>
 #include <visp/vpFeaturePoint.h>
 #include <visp/vpFeatureDepth.h>
-#include <visp/vpPoint.h>
-#include <visp/vpServo.h>
-#include <visp/vpFeatureBuilder.h>
-#include <visp/vpException.h>
-#include <visp/vpMatrixException.h>
-#include <visp/vpServoDisplay.h>
-#include <visp/vpPose.h>
-#include <visp/vpAdaptiveGain.h>
-#include <math.h>
+#include <visp/vpFeatureThetaU.h>
+#include <visp/vpFeatureTranslation.h>
+
+
+
 
 namespace visp{
 
@@ -68,7 +65,7 @@ namespace visp{
         bool new_desired_pose;
 
         void updateFeatures(std::vector<base::Vector2d> corners);
-        void updateDesiredPose();
+        bool updateDesiredPose(base::LinearAngular6DCommand setpoint);
         void setGain();
         void writeVelocities(vpColVector v);
 
