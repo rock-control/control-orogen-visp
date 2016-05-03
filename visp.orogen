@@ -23,8 +23,6 @@ needs_configuration
     property("camera_parameters", "frame_helper/CameraCalibration")
     # Marker size
     property("marker_size", "double")
-    # Sets the spatial transformation between the camera frame and the robot frame
-    property("pose_camera_robot", "visp/pose")
 
     # Position setpoint in respect to the marker frame
     input_port "cmd_in", "/base/LinearAngular6DCommand"
@@ -35,7 +33,12 @@ needs_configuration
 
     port_driven "marker_corners"
 
-    runtime_states :WAITING_FIRST_MEASUREMENTS, :CONTROLLING
+    transformer do
+        transform 'camera', 'body'
+        max_latency 0.1
+    end
+
+    runtime_states :WAITING_SETPOINT, :WAITING_CORNERS, :CONTROLLING
 
 end
 
