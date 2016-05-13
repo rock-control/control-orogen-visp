@@ -6,7 +6,7 @@ using_library "frame_helper"
 import_types_from "base"
 import_types_from "frame_helper/Calibration.h"
 import_types_from "vispTypes.hpp"
-import_types_from "auv_control/6dControl.hpp"
+import_types_from "auv_control"
 
 task_context "Task" do
 needs_configuration
