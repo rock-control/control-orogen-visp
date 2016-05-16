@@ -16,4 +16,7 @@
   -->
   <depend package="base/types" />
   <depend package="control/visp" />
+  <depend package="perception/frame_helper" />
+  <depend package="control/orogen/auv_control" />
+  <depend package="drivers/orogen/transformer" />
 </package>
