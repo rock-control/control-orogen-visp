@@ -111,6 +111,7 @@ void Task::updateHook()
     base::LinearAngular6DCommand setpoint;
     bool no_corners = (_marker_corners.read(corners) == RTT::NoData);
     bool no_setpoint = (_cmd_in.read(setpoint) == RTT::NoData);
+    ctrl_state.timestamp = base::Time::now();
 
     //set the state CONTROLLING only if there is setpoint and detected corners
     if (no_corners) 
@@ -144,8 +145,11 @@ void Task::updateHook()
         vpColVector v;
         task.set_cVe(cVe);
         v = task.computeControlLaw() ;
+        // Compute the norm-2 of the error vector
+        ctrl_state.error = vpMath::sqr((task.getError()).sumSquare());
 
         writeVelocities(v);
+        _controller_state.write(ctrl_state);
     }
 }
 
@@ -186,10 +190,13 @@ void Task::updateFeatures(std::vector<base::Vector2d> corners)
 
     pose.computePose(vpPose::LAGRANGE, cMo);
     pose.computePose(vpPose::VIRTUAL_VS, cMo);
+    //compute the "quality" of the result
+    ctrl_state.residual = pose.computeResidual(cMo);
 
     // Update Feature 1 - p
     // Sets the current position of the visual feature
     P.track(cMo);
+    ctrl_state.current_pose = convertToRbs(cMo);
     vpFeatureBuilder::create(p, P);
 
     //////////////////////////////
@@ -247,6 +254,7 @@ bool Task::updateDesiredPose(base::LinearAngular6DCommand setpoint)
     //Build the rotation and homogeneus matrix according to desired pose
     vpRotationMatrix cdRo(cdro); // Build the rotation matrix
     cdMo.buildFrom(cdto, cdRo); // Build the homogeneous matrix
+    ctrl_state.desired_pose = convertToRbs(cdMo);
 
     P.track(cdMo);
     vpFeatureBuilder::create(pd, P);
@@ -284,4 +292,22 @@ void Task::writeVelocities(vpColVector v)
     vel.time = base::Time::now();
 
     _cmd_out.write(vel);
+}
+
+base::samples::RigidBodyState Task::convertToRbs(vpHomogeneousMatrix pose)
+{
+    base::samples::RigidBodyState rbs;
+
+    rbs.position[0] = pose.getTranslationVector()[0];
+    rbs.position[1] = pose.getTranslationVector()[1];
+    rbs.position[2] = pose.getTranslationVector()[2];
+    
+    vpRotationMatrix R;
+    pose.extract(R);
+    
+    vpQuaternionVector q(R);
+    
+    rbs.orientation = base::Orientation(q.w(), q.x(), q.y(), q.z());
+
+    return rbs;
 }

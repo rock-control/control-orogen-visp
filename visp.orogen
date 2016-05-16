@@ -30,6 +30,9 @@ needs_configuration
     input_port "marker_corners", "std/vector<base::Vector2d>"
     # The control signal, velocities.
     output_port "cmd_out", "base/LinearAngular6DCommand"
+    # Output relevant information about the controller
+    # such as error, residual, desired and current position
+    output_port "controller_state", "visp/controllerState"
 
     port_driven "marker_corners"
 
