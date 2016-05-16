@@ -37,8 +37,6 @@ namespace visp{
         friend class TaskBase;
         protected:
 
-        visp::pose c_pose_r;
-
         vpCameraParameters cam_cal;
         vpServo task;
         vpPoint point[4];
