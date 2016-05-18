@@ -37,8 +37,6 @@ namespace visp{
         friend class TaskBase;
         protected:
 
-        visp::pose c_pose_r;
-
         vpCameraParameters cam_cal;
         vpServo task;
         vpPoint point[4];
@@ -63,11 +61,13 @@ namespace visp{
         vpVelocityTwistMatrix cVe;
 
         bool new_desired_pose;
+        visp::controllerState ctrl_state;
 
         void updateFeatures(std::vector<base::Vector2d> corners);
         bool updateDesiredPose(base::LinearAngular6DCommand setpoint);
         void setGain();
         void writeVelocities(vpColVector v);
+        base::samples::RigidBodyState convertToRbs(vpHomogeneousMatrix pose);
 
         public:
         /** TaskContext constructor for Task
