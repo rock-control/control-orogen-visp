@@ -152,6 +152,11 @@ void Task::updateHook()
         writeVelocities(v);
         _controller_state.write(ctrl_state);
     }
+    else
+    {
+        vpColVector v(6,0);
+        writeVelocities(v);
+    }
 }
 
 void Task::errorHook()
