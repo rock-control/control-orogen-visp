@@ -34,7 +34,7 @@ needs_configuration
     port_driven "marker_corners"
 
     transformer do
-        transform 'camera', 'body'
+        transform 'body', 'camera'
         max_latency 0.1
     end
 
