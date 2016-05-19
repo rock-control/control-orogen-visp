@@ -129,6 +129,10 @@ void Task::updateHook()
 
     if (state() == CONTROLLING)
     {
+        // transforms the setpoint in resepect with the body
+        // to the visp convenion, camera frame.
+        setpoint = transformInput(setpoint);
+
         // Sets the desired position of the visual feature (reference point)
         updateDesiredPose(setpoint);
         updateFeatures(corners);
@@ -144,7 +148,9 @@ void Task::updateHook()
         // Compute the visual servoing skew vector
         vpColVector v;
         task.set_cVe(cVe);
+        task.print();
         v = task.computeControlLaw() ;
+
         // Compute the norm-2 of the error vector
         ctrl_state.error = vpMath::sqr((task.getError()).sumSquare());
 
@@ -310,4 +316,29 @@ base::samples::RigidBodyState Task::convertToRbs(vpHomogeneousMatrix pose)
     rbs.orientation = base::Orientation(q.w(), q.x(), q.y(), q.z());
 
     return rbs;
+}
+
+base::LinearAngular6DCommand Task::transformInput(base::LinearAngular6DCommand cmd_in_body)
+{
+     //initialize setpoint on the body frame
+     vpColVector body_sp(6);
+     for (int i; i < 3; ++i)
+     {
+         body_sp[i] = cmd_in_body.linear[i];
+         body_sp[i+3] = cmd_in_body.angular[i];
+     }
+
+     // c_sp = cVb * b_sp (here e = body)
+     vpColVector camera_sp(6);
+     camera_sp = cVe*body_sp;
+
+     //convert the vpColVector to LinearAngular6DCommand
+     base::LinearAngular6DCommand cmd_in_camera;
+     for (int i; i < 3; ++i)
+     {
+         cmd_in_camera.linear[i] = camera_sp[i];
+         cmd_in_camera.angular[i] = camera_sp[i+3];
+     }
+
+    return cmd_in_camera;
 }

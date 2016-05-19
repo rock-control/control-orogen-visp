@@ -68,6 +68,10 @@ namespace visp{
         void setGain();
         void writeVelocities(vpColVector v);
         base::samples::RigidBodyState convertToRbs(vpHomogeneousMatrix pose);
+        /** Transform the given input in the body frame to the camera 
+         *  frame. 
+         */
+        base::LinearAngular6DCommand transformInput(base::LinearAngular6DCommand cmd_in);
 
         public:
         /** TaskContext constructor for Task
