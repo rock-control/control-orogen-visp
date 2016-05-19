@@ -295,7 +295,7 @@ void Task::writeVelocities(vpColVector v)
     vel.angular[0] = v[3];
     vel.angular[1] = v[4];
     vel.angular[2] = v[5];
-    vel.time = base::Time::now();
+    vel.time = ctrl_state.timestamp;
 
     _cmd_out.write(vel);
 }
