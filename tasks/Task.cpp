@@ -74,16 +74,16 @@ bool Task::configureHook()
     task.set_eJe(eJe);
 
     // Set the pose transformation between the camera and the robot frame
-    Eigen::Affine3d camera2body;
-    _camera2body.get(base::Time::now(), camera2body);
+    Eigen::Affine3d body2camera;
+    _body2camera.get(base::Time::now(), body2camera);
 
     //Computes the Velocity Twist Matrix from the spatial transformation between the camera and the robot
     //translation
-    vpTranslationVector cto(camera2body.translation()[0],
-                            camera2body.translation()[1],
-                            camera2body.translation()[2]);
+    vpTranslationVector cto(body2camera.translation()[0],
+            body2camera.translation()[1],
+            body2camera.translation()[2]);
     //rotation
-    base::Quaterniond q(camera2body.rotation());
+    base::Quaterniond q(body2camera.rotation());
     vpRotationMatrix cRo(vpQuaternionVector(q.x(), q.y(), q.z(), q.w()));
 
     //build the homogeneous matrix
