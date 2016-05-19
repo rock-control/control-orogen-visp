@@ -67,10 +67,10 @@ bool Task::configureHook()
             task.addFeature(tu) ;
     }
 
+    expected_inputs = _expected_inputs.get();
     // Set the Jacobian (expressed in the end-effector frame)
-    eJe.eye(6,6);
-    //eJe[3][3] = 0;
-    //eJe[5][3] = 1;
+    // it depends of the desired control dof
+    eJe = getJacobianFromExpectedInputs(expected_inputs);
     task.set_eJe(eJe);
 
     // Set the pose transformation between the camera and the robot frame
@@ -136,12 +136,7 @@ void Task::updateHook()
         // Sets the desired position of the visual feature (reference point)
         updateDesiredPose(setpoint);
         updateFeatures(corners);
-
-        // Update this jacobian in the task structure. It will be used to compute
-        // the velocity skew (as an articular velocity)
-        // qdot = -lambda * L^+ * cVe * eJe * (s-s*)
-        task.set_eJe(eJe) ;
-
+   
         // Set the gain
         setGain();
 
@@ -289,14 +284,20 @@ void Task::setGain()
 void Task::writeVelocities(vpColVector v)
 {
     base::LinearAngular6DCommand vel;
-    vel.linear[0] = v[0];
-    vel.linear[1] = v[1];
-    vel.linear[2] = v[2];
-    vel.angular[0] = v[3];
-    vel.angular[1] = v[4];
-    vel.angular[2] = v[5];
-    vel.time = ctrl_state.timestamp;
 
+    for (int i=0; i < 3; ++i)
+    {
+        // write NaN on the non-desirable outputs in order to 
+        // keep the consistence with the other controllers 
+        // linear
+        if (!expected_inputs.linear[i]) {v[i] = base::NaN<double>();}
+        vel.linear[i] = v[i];
+        //angular
+        if (!expected_inputs.angular[i]) {v[i+3] = base::NaN<double>();}
+        vel.angular[i] = v[i+3];
+    }
+
+    vel.time = ctrl_state.timestamp;
     _cmd_out.write(vel);
 }
 
@@ -322,9 +323,13 @@ base::LinearAngular6DCommand Task::transformInput(base::LinearAngular6DCommand c
 {
      //initialize setpoint on the body frame
      vpColVector body_sp(6);
-     for (int i; i < 3; ++i)
+     for (int i = 0; i < 3; ++i)
      {
+         //if there is not expected input, set it to zero, so the 
+         //visp do not crashs when try to build cdMo matrix
+         if (!expected_inputs.linear[i]) {cmd_in_body.linear[i] = 0;}
          body_sp[i] = cmd_in_body.linear[i];
+         if (!expected_inputs.angular[i]) {cmd_in_body.angular[i] = 3.1415;}
          body_sp[i+3] = cmd_in_body.angular[i];
      }
 
@@ -334,11 +339,25 @@ base::LinearAngular6DCommand Task::transformInput(base::LinearAngular6DCommand c
 
      //convert the vpColVector to LinearAngular6DCommand
      base::LinearAngular6DCommand cmd_in_camera;
-     for (int i; i < 3; ++i)
+     for (int i = 0; i < 3; ++i)
      {
          cmd_in_camera.linear[i] = camera_sp[i];
          cmd_in_camera.angular[i] = camera_sp[i+3];
      }
 
     return cmd_in_camera;
+}
+
+vpMatrix Task::getJacobianFromExpectedInputs(visp::expectedInputs expected_inputs)
+{
+    vpMatrix eJe;
+    eJe.eye(6);
+    
+    for(int i = 0; i < 3; ++i)
+    {
+        if (!expected_inputs.linear[i])  {eJe[i][i] = 0;} 
+        if (!expected_inputs.angular[i]) {eJe[i+3][i+3] = 0;}
+    }
+
+    return eJe;
 }

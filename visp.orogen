@@ -23,6 +23,8 @@ needs_configuration
     property("camera_parameters", "frame_helper/CameraCalibration")
     # Marker size
     property("marker_size", "double")
+    # Defines the controlled degrees of freedom
+    property("expected_inputs", "visp::expectedInputs")
 
     # Position setpoint in respect to the marker frame
     input_port "cmd_in", "/base/LinearAngular6DCommand"

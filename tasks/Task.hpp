@@ -37,6 +37,8 @@ namespace visp{
         friend class TaskBase;
         protected:
 
+        visp::expectedInputs expected_inputs;
+
         vpCameraParameters cam_cal;
         vpServo task;
         vpPoint point[4];
@@ -68,10 +70,17 @@ namespace visp{
         void setGain();
         void writeVelocities(vpColVector v);
         base::samples::RigidBodyState convertToRbs(vpHomogeneousMatrix pose);
+
         /** Transform the given input in the body frame to the camera 
          *  frame. 
+            \param Desired body position with resepct to the visual feature
          */
         base::LinearAngular6DCommand transformInput(base::LinearAngular6DCommand cmd_in);
+
+        /** Take the expected inputs and set the jacobian matrix for the controller
+         *  \param expected_inputs Expected inputs for the setpoint with wrt body frame
+         */
+        vpMatrix getJacobianFromExpectedInputs(visp::expectedInputs expected_inputs);
 
         public:
         /** TaskContext constructor for Task

@@ -57,6 +57,12 @@ namespace visp
         base::samples::RigidBodyState current_pose;
         base::Time timestamp;
     };
+    
+    struct expectedInputs
+    {
+        bool linear[3];
+        bool angular[3];
+    };
 
 }
 
