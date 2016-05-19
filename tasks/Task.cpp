@@ -284,16 +284,33 @@ void Task::setGain()
 void Task::writeVelocities(vpColVector v)
 {
     base::LinearAngular6DCommand vel;
+    visp::saturationValues saturation = _saturation.get();
 
     for (int i=0; i < 3; ++i)
     {
         // write NaN on the non-desirable outputs in order to 
         // keep the consistence with the other controllers 
         // linear
-        if (!expected_inputs.linear[i]) {v[i] = base::NaN<double>();}
+        if (!expected_inputs.linear[i])
+        {
+            v[i] = base::NaN<double>();
+        }
+        else if (v[i] > saturation.linear[i])
+        {
+            v[i] = saturation.linear[i];
+        }
         vel.linear[i] = v[i];
+
+
         //angular
-        if (!expected_inputs.angular[i]) {v[i+3] = base::NaN<double>();}
+        if (!expected_inputs.angular[i])
+        {
+            v[i+3] = base::NaN<double>();
+        }
+        else if (v[i+3] > saturation.angular[i])
+        {
+            v[i+3] = saturation.angular[i];
+        }
         vel.angular[i] = v[i+3];
     }
 

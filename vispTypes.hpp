@@ -64,6 +64,15 @@ namespace visp
         bool angular[3];
     };
 
+    /** Saturation values for the controller
+     *  represents the maximum absolut output value
+     */
+    struct saturationValues
+    {
+        base::Vector3d linear;
+        base::Vector3d angular;
+    };
+
 }
 
 #endif
