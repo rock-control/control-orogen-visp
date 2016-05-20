@@ -196,6 +196,11 @@ void Task::updateFeatures(std::vector<base::Vector2d> corners)
 
     pose.computePose(vpPose::LAGRANGE, cMo);
     pose.computePose(vpPose::VIRTUAL_VS, cMo);
+
+    // apply a rotation around the z on the camera frame
+    vpHomogeneousMatrix rot(0, 0, 0, 0, 0, vpMath::rad(_rotation_around_z.get()));
+    
+    cMo = cMo * rot;
     //compute the "quality" of the result
     ctrl_state.residual = pose.computeResidual(cMo);
 
