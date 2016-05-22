@@ -44,11 +44,11 @@ namespace visp{
         vpPoint point[4];
         vpPoint P;
 
-        //homogeneus matrices
-        vpHomogeneousMatrix cMo;
-        vpHomogeneousMatrix cdMo;
-        vpHomogeneousMatrix cdMc;
-        vpHomogeneousMatrix cMe;
+        //homogeneus matrices 
+        vpHomogeneousMatrix cMo;  //object object in the camera frame
+        vpHomogeneousMatrix cdMo; //desired object pose in the camera frame
+        vpHomogeneousMatrix cdMc; //camera pose in the desired camera frame
+        vpHomogeneousMatrix cMb;  //body pose in the camera frame
         vpPose pose;
 
         //features
@@ -60,7 +60,7 @@ namespace visp{
         double Zd;
 
         vpMatrix eJe ;
-        vpVelocityTwistMatrix cVe;
+        vpVelocityTwistMatrix cVb; //transform the velocities of the camera to the body frame
 
         bool new_desired_pose;
         visp::controllerState ctrl_state;
@@ -75,7 +75,7 @@ namespace visp{
          *  frame. 
             \param Desired body position with resepct to the visual feature
          */
-        base::LinearAngular6DCommand transformInput(base::LinearAngular6DCommand cmd_in);
+        void transformInput(base::LinearAngular6DCommand cmd_in_body);
 
         /** Take the expected inputs and set the jacobian matrix for the controller
          *  \param expected_inputs Expected inputs for the setpoint with wrt body frame

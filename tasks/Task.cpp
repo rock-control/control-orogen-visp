@@ -21,7 +21,6 @@ Task::~Task()
 {
 }
 
-
 /// The following lines are template definitions for the various state machine
 // hooks defined by Orocos::RTT. See Task.hpp for more detailed
 // documentation about them.
@@ -79,18 +78,18 @@ bool Task::configureHook()
 
     //Computes the Velocity Twist Matrix from the spatial transformation between the camera and the robot
     //translation
-    vpTranslationVector cto(body2camera.translation()[0],
+    vpTranslationVector ctb(body2camera.translation()[0],
             body2camera.translation()[1],
             body2camera.translation()[2]);
     //rotation
     base::Quaterniond q(body2camera.rotation());
-    vpRotationMatrix cRo(vpQuaternionVector(q.x(), q.y(), q.z(), q.w()));
+    vpRotationMatrix cRb(vpQuaternionVector(q.x(), q.y(), q.z(), q.w()));
 
-    //build the homogeneous matrix
-    cMe.buildFrom(cto, cRo); 
+    //build the homogeneous matrix of the body frame wrt the camera
+    cMb.buildFrom(ctb, cRb); 
     //build and set the velocity twist matrix
-    cVe.buildFrom(cMe);
-    task.set_cVe(cVe);
+    cVb.buildFrom(cMb);
+    task.set_cVe(cVb);
 
     return true;
 }
@@ -129,20 +128,22 @@ void Task::updateHook()
 
     if (state() == CONTROLLING)
     {
-        // transforms the setpoint in resepect with the body
-        // to the visp convenion, camera frame.
-        setpoint = transformInput(setpoint);
+        // transforms the setpoint of object in the body frame to the camera
+        // frame and update the cdMo matrix
+        updateDesiredPose(setpoint);
 
         // Sets the desired position of the visual feature (reference point)
-        updateDesiredPose(setpoint);
         updateFeatures(corners);
    
+        // update eJe
+        task.set_eJe(eJe);
+
         // Set the gain
         setGain();
 
         // Compute the visual servoing skew vector
         vpColVector v;
-        task.set_cVe(cVe);
+        task.set_cVe(cVb);
         task.print();
         v = task.computeControlLaw() ;
 
@@ -259,12 +260,7 @@ void Task::updateFeatures(std::vector<base::Vector2d> corners)
 
 bool Task::updateDesiredPose(base::LinearAngular6DCommand setpoint)
 {
-    vpTranslationVector cdto(setpoint.linear[0], setpoint.linear[1], setpoint.linear[2]);
-    vpRxyzVector cdro(setpoint.angular[0], setpoint.angular[1], setpoint.angular[2]);
-
-    //Build the rotation and homogeneus matrix according to desired pose
-    vpRotationMatrix cdRo(cdro); // Build the rotation matrix
-    cdMo.buildFrom(cdto, cdRo); // Build the homogeneous matrix
+    transformInput(setpoint);
     ctrl_state.desired_pose = convertToRbs(cdMo);
 
     P.track(cdMo);
@@ -346,33 +342,38 @@ base::samples::RigidBodyState Task::convertToRbs(vpHomogeneousMatrix pose)
     return rbs;
 }
 
-base::LinearAngular6DCommand Task::transformInput(base::LinearAngular6DCommand cmd_in_body)
+void Task::transformInput(base::LinearAngular6DCommand cmd_in_body)
 {
-     //initialize setpoint on the body frame
-     vpColVector body_sp(6);
-     for (int i = 0; i < 3; ++i)
-     {
-         //if there is not expected input, set it to zero, so the 
-         //visp do not crashs when try to build cdMo matrix
-         if (!expected_inputs.linear[i]) {cmd_in_body.linear[i] = 0;}
-         body_sp[i] = cmd_in_body.linear[i];
-         if (!expected_inputs.angular[i]) {cmd_in_body.angular[i] = 3.1415;}
-         body_sp[i+3] = cmd_in_body.angular[i];
-     }
+    //initialize setpoint on the body frame
+    //since the non-expected input are NaN, set it to default values
+    //in order to have valid values for the HomogeneusMatrix creation 
+    for (int i = 0; i < 3; ++i)
+    {
+        if (!expected_inputs.linear[i]) {cmd_in_body.linear[i] = 0;}
+        if (!expected_inputs.angular[i])
+        {
+            if ( i == 0 || i == 1)
+            {
+                cmd_in_body.angular[i] = -M_PI_2;
+            }
+            else
+            {
+                cmd_in_body.angular[i] = 0;
+            }
+        }
+    }
 
-     // c_sp = cVb * b_sp (here e = body)
-     vpColVector camera_sp(6);
-     camera_sp = cVe*body_sp;
+    //create a vpHomogeneousMatrix of the object desired position wrt body (bdMo)
+    vpTranslationVector bdto(cmd_in_body.linear[0], cmd_in_body.linear[1], cmd_in_body.linear[2]);
+    vpRxyzVector bdro(cmd_in_body.angular[0], cmd_in_body.angular[1], cmd_in_body.angular[2]);
+    vpRotationMatrix bdRo(bdro); 
+    //pose of the object wrt the body 
+    vpHomogeneousMatrix bdMo(bdto, bdRo); 
 
-     //convert the vpColVector to LinearAngular6DCommand
-     base::LinearAngular6DCommand cmd_in_camera;
-     for (int i = 0; i < 3; ++i)
-     {
-         cmd_in_camera.linear[i] = camera_sp[i];
-         cmd_in_camera.angular[i] = camera_sp[i+3];
-     }
-
-    return cmd_in_camera;
+    //bdMo is the desired pose of the object in the body frame 
+    //cdMo is the desired pose of the object in the camera frame 
+    //cMb is the transformation matrix of the body in the camera frame
+    cdMo = cMb * bdMo;
 }
 
 vpMatrix Task::getJacobianFromExpectedInputs(visp::expectedInputs expected_inputs)
