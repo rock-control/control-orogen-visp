@@ -12,6 +12,7 @@
 #include <visp/vpFeatureDepth.h>
 #include <visp/vpFeatureThetaU.h>
 #include <visp/vpFeatureTranslation.h>
+#include <apriltags/apriltagsTypes.hpp>
 
 
 
@@ -65,7 +66,7 @@ namespace visp{
         bool new_desired_pose;
         visp::controllerState ctrl_state;
 
-        void updateFeatures(std::vector<base::Vector2d> corners);
+        void updateFeatures(apriltags::VisualFeaturePoint corners);
         bool updateDesiredPose(base::LinearAngular6DCommand setpoint);
         void setGain();
         void writeVelocities(vpColVector v);

@@ -106,9 +106,9 @@ void Task::updateHook()
     TaskBase::updateHook();
 
     //read input ports
-    std::vector<base::Vector2d> corners;
+    std::vector<apriltags::VisualFeaturePoint> corners_vector;
     base::LinearAngular6DCommand setpoint;
-    bool no_corners = (_marker_corners.read(corners) == RTT::NoData);
+    bool no_corners = (_marker_corners.read(corners_vector) == RTT::NoData);
     bool no_setpoint = (_cmd_in.read(setpoint) == RTT::NoData);
     ctrl_state.timestamp = base::Time::now();
 
@@ -128,6 +128,10 @@ void Task::updateHook()
 
     if (state() == CONTROLLING)
     {
+        //FILTER CODE HERE!
+        apriltags::VisualFeaturePoint corners;
+        corners = corners_vector[0];
+
         // transforms the setpoint of object in the body frame to the camera
         // frame and update the cdMo matrix
         updateDesiredPose(setpoint);
@@ -177,7 +181,7 @@ void Task::cleanupHook()
     task.kill();
 }
 
-void Task::updateFeatures(std::vector<base::Vector2d> corners)
+void Task::updateFeatures(apriltags::VisualFeaturePoint corners)
 {
     //  Compute the initial pose
     pose.clearPoint();
@@ -185,7 +189,7 @@ void Task::updateFeatures(std::vector<base::Vector2d> corners)
     for (int i=0 ; i < 4 ; i++)
     {
         base::Vector2d aux;
-        aux = corners[i];
+        aux = corners.points[i];
         //vpImagePoint is instanciated using (v,u) instead of (u,v)
         vpImagePoint a(aux[1],aux[0]);
         double x,y;
@@ -218,13 +222,12 @@ void Task::updateFeatures(std::vector<base::Vector2d> corners)
     //Takes the features, calculate the intersection of the diagonals of the square and
     //given the camera parameters, retrieve the coordinates in meters.
     vpImagePoint refP;
-    //double x,y;
     vpImagePoint cog[4];
 
     for (int i=0; i< 4; i++)
     {
         base::Vector2d aux;
-        aux = corners[i];
+        aux = corners.points[i];
         //according to vpImagePoint documentation (i,j) is equivalent to (v,u)
         cog[i].set_ij(aux[1], aux[0]);
     }

@@ -7,6 +7,7 @@ import_types_from "base"
 import_types_from "frame_helper/Calibration.h"
 import_types_from "vispTypes.hpp"
 import_types_from "auv_control"
+import_types_from "apriltags"
 
 task_context "Task" do
 needs_configuration
@@ -34,7 +35,7 @@ needs_configuration
     # Position setpoint in respect to the marker frame
     input_port "cmd_in", "/base/LinearAngular6DCommand"
     # Input data to the controlller
-    input_port "marker_corners", "std/vector<base::Vector2d>"
+    input_port "marker_corners", "std/vector<apriltags/VisualFeaturePoint>"
     # The control signal, velocities.
     output_port "cmd_out", "base/LinearAngular6DCommand"
     # Output relevant information about the controller
