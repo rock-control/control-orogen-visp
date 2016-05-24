@@ -22,8 +22,10 @@ needs_configuration
     property("adaptive_gains", "visp/adaptiveGains")
     # Camera calibration parameters
     property("camera_parameters", "frame_helper/CameraCalibration")
-    # Marker size
-    property("marker_size", "double")
+    # Object height
+    property("object_height", "double")
+    # Object width
+    property("object_width", "double")
     # Defines the controlled degrees of freedom
     property("expected_inputs", "visp::expectedInputs")
     # Set the maximum absolute value for the output ports
@@ -31,6 +33,12 @@ needs_configuration
     # Set a rotation (in deg)  on the expected input, useful when the corners are
     # not given on the expected default order.
     property("rotation_around_z", "double", 0)
+    # In case of multiple detected objets, this properties set the target object
+    # in which the robot will perform the visual servoing
+    property("target_list", "/std/vector<visp::targetObjectParameters>")
+    # In case of multiple detected objets, this properties set the target object
+    # in which the robot will perform the visual servoing
+    property("target_identifier", "string", "").dynamic
     # Adjust the calibration parameters if the image was scaled in the feature
     # provider
     property("scaling", "double", 1.0)

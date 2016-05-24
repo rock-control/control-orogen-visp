@@ -73,6 +73,17 @@ namespace visp
         base::Vector3d angular;
     };
 
+    /** Stores the information of possible 
+     *  targets. 
+     */
+    struct targetObjectParameters
+    {
+        std::string identifier;
+        double rotation_around_z;
+        double width;
+        double height;
+    };
+
 }
 
 #endif

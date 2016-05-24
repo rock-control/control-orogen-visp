@@ -60,13 +60,18 @@ namespace visp{
         vpFeatureTranslation t;
         double Zd;
 
+        //target parameters
+        std::string target_identifier;
+        double rotation_around_z;
+        std::vector<visp::targetObjectParameters> target_list;
+
         vpMatrix eJe ;
         vpVelocityTwistMatrix cVb; //transform the velocities of the camera to the body frame
 
         bool new_desired_pose;
         visp::controllerState ctrl_state;
 
-        void updateFeatures(apriltags::VisualFeaturePoint corners);
+        void updateFeaturesHVS(apriltags::VisualFeaturePoint corners);
         bool updateDesiredPose(base::LinearAngular6DCommand setpoint);
         void setGain();
         void writeVelocities(vpColVector v);
@@ -82,6 +87,14 @@ namespace visp{
          *  \param expected_inputs Expected inputs for the setpoint with wrt body frame
          */
         vpMatrix getJacobianFromExpectedInputs(visp::expectedInputs expected_inputs);
+
+        //DOCUMENT!!!
+        //DOCUMENT!!!
+        //DOCUMENT!!!
+        void setObjectSize(double object_width, double object_height);
+        bool updateTargetParameters(std::string target_identifier);
+        bool filterTarget(std::vector<apriltags::VisualFeaturePoint> corners_vector, std::string target_identifier, apriltags::VisualFeaturePoint &corners);
+        virtual bool setTarget_identifier(std::string const & value);
 
         public:
         /** TaskContext constructor for Task

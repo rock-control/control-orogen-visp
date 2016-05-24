@@ -30,6 +30,9 @@ bool Task::configureHook()
     if (! TaskBase::configureHook())
         return false;
 
+    //Set the target_list
+    target_list = _target_list.get();
+
     // Initialize camera parameters.
     // The library desconsider the tangencial values, that's why only the
     // radial values are informed. 
@@ -45,14 +48,6 @@ bool Task::configureHook()
         cal.width = scaling * cal.width;
     }
     cam_cal = vpCameraParameters(cal.fx, cal.fy,cal.cx,cal.cy);
-
-    // Set the position of the square target in a frame which origin is
-    // centered in the middle of the square
-    double L = _marker_size.get()/2; // 2L is the square size
-    point[0].setWorldCoordinates(-L,  L, 0);
-    point[1].setWorldCoordinates( L,  L, 0);
-    point[2].setWorldCoordinates( L, -L, 0);
-    point[3].setWorldCoordinates(-L, -L, 0);
 
     //Center of the target (reference point)
     P.setWorldCoordinates(0, 0, 0);
@@ -117,13 +112,14 @@ void Task::updateHook()
 
     //read input ports
     std::vector<apriltags::VisualFeaturePoint> corners_vector;
+    _marker_corners.read(corners_vector);
+    apriltags::VisualFeaturePoint corners;
+
     base::LinearAngular6DCommand setpoint;
-    bool no_corners = (_marker_corners.read(corners_vector) == RTT::NoData);
     bool no_setpoint = (_cmd_in.read(setpoint) == RTT::NoData);
-    ctrl_state.timestamp = base::Time::now();
 
     //set the state CONTROLLING only if there is setpoint and detected corners
-    if (no_corners) 
+    if (!(filterTarget(corners_vector, target_identifier, corners)))
     {
         state(WAITING_CORNERS);
     }
@@ -138,16 +134,13 @@ void Task::updateHook()
 
     if (state() == CONTROLLING)
     {
-        //FILTER CODE HERE!
-        apriltags::VisualFeaturePoint corners;
-        corners = corners_vector[0];
-
         // transforms the setpoint of object in the body frame to the camera
-        // frame and update the cdMo matrix
+        // Sets the desired position of the visual feature (reference point)
         updateDesiredPose(setpoint);
 
-        // Sets the desired position of the visual feature (reference point)
-        updateFeatures(corners);
+        //if no target is informed, change the state and return
+        updateTargetParameters(target_identifier);
+        updateFeaturesHVS(corners);
    
         // update eJe
         task.set_eJe(eJe);
@@ -191,8 +184,10 @@ void Task::cleanupHook()
     task.kill();
 }
 
-void Task::updateFeatures(apriltags::VisualFeaturePoint corners)
+void Task::updateFeaturesHVS(apriltags::VisualFeaturePoint corners)
 {
+
+
     //  Compute the initial pose
     pose.clearPoint();
 
@@ -213,7 +208,7 @@ void Task::updateFeatures(apriltags::VisualFeaturePoint corners)
     pose.computePose(vpPose::VIRTUAL_VS, cMo);
 
     // apply a rotation around the z on the camera frame
-    vpHomogeneousMatrix rot(0, 0, 0, 0, 0, vpMath::rad(_rotation_around_z.get()));
+    vpHomogeneousMatrix rot(0, 0, 0, 0, 0, vpMath::rad(rotation_around_z));
     
     cMo = cMo * rot;
     //compute the "quality" of the result
@@ -401,4 +396,79 @@ vpMatrix Task::getJacobianFromExpectedInputs(visp::expectedInputs expected_input
     }
 
     return eJe;
+}
+
+bool Task::filterTarget(std::vector<apriltags::VisualFeaturePoint> corners_vector, std::string target_identifier, apriltags::VisualFeaturePoint &corners)
+{
+    if (corners_vector.size() == 0)
+    {
+        return false;
+    }
+    else if (target_identifier == "")
+    { 
+        corners = corners_vector[0];
+        return true;
+    }
+    else
+    {
+        for (int i = 0; i < corners_vector.size(); ++i)
+        {
+            if (target_identifier == corners_vector[i].identifier)
+            {
+                ctrl_state.timestamp = corners_vector[i].time;
+                corners = corners_vector[i];
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+bool Task::updateTargetParameters(std::string target_identifier)
+{
+    if (target_identifier == "")
+    {  
+        //update object size
+        setObjectSize(_object_width.get(), _object_height.get());
+        //update rotation
+        rotation_around_z = _rotation_around_z.get();
+        return true;
+    }
+    else
+    {
+        for (int i = 0; i < target_list.size(); ++i)
+        {
+            if(target_list[i].identifier == target_identifier)
+            {
+                //update the size of the object
+                setObjectSize(target_list[i].width, target_list[i].height); 
+                //update the rotation
+                rotation_around_z = target_list[i].rotation_around_z;
+
+                //set the properties
+                _object_height.set(target_list[i].width);
+                _object_width.set(target_list[i].height);
+                _rotation_around_z.set(target_list[i].rotation_around_z);
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+void Task::setObjectSize(double object_width, double object_height)
+{
+    double w = object_width/2;
+    double h = object_height/2;
+
+    point[0].setWorldCoordinates(-w,  h, 0);
+    point[1].setWorldCoordinates( w,  h, 0);
+    point[2].setWorldCoordinates( w, -h, 0);
+    point[3].setWorldCoordinates(-w, -h, 0);
+}
+
+bool Task::setTarget_identifier(std::string const & value)
+{
+    this->target_identifier = value;
+    return true;
 }
