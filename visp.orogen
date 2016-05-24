@@ -31,6 +31,9 @@ needs_configuration
     # Set a rotation (in deg)  on the expected input, useful when the corners are
     # not given on the expected default order.
     property("rotation_around_z", "double", 0)
+    # Adjust the calibration parameters if the image was scaled in the feature
+    # provider
+    property("scaling", "double", 1.0)
 
     # Position setpoint in respect to the marker frame
     input_port "cmd_in", "/base/LinearAngular6DCommand"

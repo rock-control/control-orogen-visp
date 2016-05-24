@@ -34,6 +34,16 @@ bool Task::configureHook()
     // The library desconsider the tangencial values, that's why only the
     // radial values are informed. 
     frame_helper::CameraCalibration cal = _camera_parameters.get();
+    double scaling = _scaling.get();
+    if(scaling != 1.0)
+    {
+        cal.fx = scaling * cal.fx;
+        cal.fy = scaling * cal.fy;
+        cal.cx = scaling * cal.cx;
+        cal.cy = scaling * cal.cy;
+        cal.height = scaling * cal.height;
+        cal.width = scaling * cal.width;
+    }
     cam_cal = vpCameraParameters(cal.fx, cal.fy,cal.cx,cal.cy);
 
     // Set the position of the square target in a frame which origin is
