@@ -44,6 +44,7 @@ namespace visp{
         vpServo task;
         vpPoint point[4];
         vpPoint P;
+        base::LinearAngular6DCommand setpoint;
 
         //homogeneus matrices 
         vpHomogeneousMatrix cMo;  //object object in the camera frame
@@ -88,11 +89,24 @@ namespace visp{
          */
         vpMatrix getJacobianFromExpectedInputs(visp::expectedInputs expected_inputs);
 
-        //DOCUMENT!!!
-        //DOCUMENT!!!
-        //DOCUMENT!!!
+        /** Set the objetc size
+         *  \param target width
+         *  \param target height
+         */
         void setObjectSize(double object_width, double object_height);
+
+        /** Look for the parameters of a target in a given target list and update it. 
+         *  \param target's name
+         */ 
         bool updateTargetParameters(std::string target_identifier);
+
+        /** Select among a vector of VisualFeaturePoint the one who was the same 
+         *  identifier as "target_identifier"
+         *  \param vector of corners
+         *  \param desired target identifier
+         *  \param corners output of the desired target
+         *  \return True if the desired target is find. 
+         */ 
         bool filterTarget(std::vector<apriltags::VisualFeaturePoint> corners_vector, std::string target_identifier, apriltags::VisualFeaturePoint &corners);
         virtual bool setTarget_identifier(std::string const & value);
 
