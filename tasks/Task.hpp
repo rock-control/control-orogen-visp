@@ -48,7 +48,6 @@ namespace visp{
 
         //homogeneus matrices 
         vpHomogeneousMatrix cMo;  //object object in the camera frame
-        vpHomogeneousMatrix cdMo; //desired object pose in the camera frame
         vpHomogeneousMatrix cdMc; //camera pose in the desired camera frame
         vpHomogeneousMatrix cMb;  //body pose in the camera frame
         vpPose pose;
@@ -66,23 +65,23 @@ namespace visp{
         double rotation_around_z;
         std::vector<visp::targetObjectParameters> target_list;
 
-        vpMatrix eJe ;
+        vpMatrix eJe;
         vpVelocityTwistMatrix cVb; //transform the velocities of the camera to the body frame
 
         bool new_desired_pose;
         visp::controllerState ctrl_state;
 
-        void updateFeaturesHVS(apriltags::VisualFeaturePoint corners);
-        bool updateDesiredPose(base::LinearAngular6DCommand setpoint);
+        void updateFeaturesHVS(apriltags::VisualFeaturePoint corners, const vpHomogeneousMatrix& cdMo);
+
+        /** Update the desired pose according to a setpoint. The setpoint is the desired
+         *  object pose in the vehicle's frame.
+         *  \param Desired body position with resepct to the visual feature
+         *  \return The desired pose of the object in the camera frame
+         */
+        vpHomogeneousMatrix updateDesiredPose(base::LinearAngular6DCommand setpoint);
         void setGain();
         void writeVelocities(vpColVector v);
         base::samples::RigidBodyState convertToRbs(vpHomogeneousMatrix pose);
-
-        /** Transform the given input in the body frame to the camera 
-         *  frame. 
-            \param Desired body position with resepct to the visual feature
-         */
-        void transformInput(base::LinearAngular6DCommand cmd_in_body);
 
         /** Take the expected inputs and set the jacobian matrix for the controller
          *  \param expected_inputs Expected inputs for the setpoint with wrt body frame

@@ -142,11 +142,12 @@ void Task::updateHook()
 
         // transforms the setpoint of object in the body frame to the camera
         // Sets the desired position of the visual feature (reference point)
-        updateDesiredPose(setpoint);
+        vpHomogeneousMatrix cdMo;
+        cdMo = updateDesiredPose(setpoint);
 
         //if no target is informed, change the state and return
         updateTargetParameters(target_identifier);
-        updateFeaturesHVS(corners);
+        updateFeaturesHVS(corners, cdMo);
 
         // update eJe
         task.set_eJe(eJe);
@@ -184,7 +185,7 @@ void Task::cleanupHook()
     task.kill();
 }
 
-void Task::updateFeaturesHVS(apriltags::VisualFeaturePoint corners)
+void Task::updateFeaturesHVS(apriltags::VisualFeaturePoint corners,const vpHomogeneousMatrix& cdMo)
 {
     //  Compute the initial pose
     pose.clearPoint();
@@ -263,20 +264,56 @@ void Task::updateFeaturesHVS(apriltags::VisualFeaturePoint corners)
     //////////////////////////////
     cdMc = cdMo*cMo.inverse();
     t.buildFrom(cdMc);
-    tu.buildFrom(cdMc) ;
+    tu.buildFrom(cdMc);
 
 }
 
-bool Task::updateDesiredPose(base::LinearAngular6DCommand setpoint)
+vpHomogeneousMatrix Task::updateDesiredPose(base::LinearAngular6DCommand setpoint)
 {
-    transformInput(setpoint);
+    // Set the input command to their default values when they are not expected.
+    // This is required to a valide vpHomogeneousMatrix creation, since non-expected
+    // inputs are NaN.
+    // Given that the object frame's z-axis points to the oposite side of the body
+    // frame's x-axis. The object's x and y axis are in such way that in order
+    // to have a vehicle stable in "d" meters in front of the object, the desired
+    // posistion has to be: {x=d, y=0, z=0, roll=-pi/2, pitch=-pi/2, yaw=0}.
+    static const double arr[6] = {0, 0, 0, -M_PI_2, -M_PI_2, 0};
+    std::vector<double> default_linear_values(&arr[0], &arr[0]+3);
+    std::vector<double> default_angular_values(&arr[3], &arr[3]+3);
+
+    for (int i = 0; i < 3; ++i)
+    {
+        // linear
+        if (!expected_inputs.linear[i])
+        {
+            setpoint.linear[i] = default_linear_values[i];
+        }
+        // angular
+        if (!expected_inputs.angular[i])
+        {
+            setpoint.angular[i] = default_angular_values[i];
+        }
+    }
+
+    //create a vpHomogeneousMatrix of the object desired position wrt body (bdMo)
+    vpTranslationVector bdto(setpoint.linear[0], setpoint.linear[1], setpoint.linear[2]);
+    vpRxyzVector bdro(setpoint.angular[0], setpoint.angular[1], setpoint.angular[2]);
+    vpRotationMatrix bdRo(bdro);
+    //desired pose of the object wrt the body
+    vpHomogeneousMatrix bdMo(bdto, bdRo);
+
+    //bdMo is the desired pose of the object in the body frame
+    //cdMo is the desired pose of the object in the camera frame
+    //cMb is the transformation matrix of the body in the camera frame
+    vpHomogeneousMatrix cdMo = cMb * bdMo;
     ctrl_state.desired_pose = convertToRbs(cdMo);
 
+    //update the desired features Zd and pd
     P.track(cdMo);
     vpFeatureBuilder::create(pd, P);
     Zd = P.get_Z();
 
-    return true;
+    return cdMo;
 }
 
 void Task::setGain()
@@ -299,30 +336,23 @@ void Task::setGain()
 void Task::writeVelocities(vpColVector v)
 {
     base::LinearAngular6DCommand vel;
-    visp::saturationValues saturation = _saturation.get();
+    visp::saturationValues sat = _saturation.get();
 
     for (int i=0; i < 3; ++i)
     {
+        //check min and max saturation values
+        vel.linear[i] = std::min(std::max(v[i], sat.linear_min[i]), sat.linear_max[i]);
+        vel.angular[i] = std::min(std::max(v[i+3], sat.angular_min[i]), sat.angular_max[i]);
+
         // write NaN on the non-desirable outputs in order to
         // keep the consistence with the other controllers
-        // linear
         if (!expected_inputs.linear[i])
         {
             vel.linear[i] = base::NaN<double>();
         }
-        else if (v[i] > saturation.linear[i])
-        {
-            vel.linear[i] = saturation.linear[i];
-        }
-
-        //angular
         if (!expected_inputs.angular[i])
         {
             vel.angular[i] = base::NaN<double>();
-        }
-        else if (v[i+3] > saturation.angular[i])
-        {
-            vel.angular[i] = saturation.angular[i];
         }
     }
 
@@ -344,47 +374,6 @@ base::samples::RigidBodyState Task::convertToRbs(vpHomogeneousMatrix pose)
     rbs.orientation = base::Orientation(q.w(), q.x(), q.y(), q.z());
 
     return rbs;
-}
-
-void Task::transformInput(base::LinearAngular6DCommand cmd_in_body)
-{
-    //initialize setpoint on the body frame
-    //since the non-expected input are NaN, set it to default values
-    //in order to have valid values for the HomogeneusMatrix creation
-    for (int i = 0; i < 3; ++i)
-    {
-        if (!expected_inputs.linear[i]) {cmd_in_body.linear[i] = 0;}
-
-        // the object frame's z-axis points to the oposite side of the body 
-        // frame's x-axis. The object x and y axis are in such way that in order 
-        // to have a vehicle stable in "d" meters in front of the object, the desired
-        // posistion has to be: (x=d, y=0, z=0, roll=-pi/2, pitch=-pi/2, yaw=0).
-        // So if no roll and pitch control is desired, the default value has to
-        // be -M_PI_2 for these DOF.
-        if (!expected_inputs.angular[i])
-        {
-            if ( i == 0 || i == 1)
-            {
-                cmd_in_body.angular[i] = -M_PI_2;
-            }
-            else
-            {
-                cmd_in_body.angular[i] = 0;
-            }
-        }
-    }
-
-    //create a vpHomogeneousMatrix of the object desired position wrt body (bdMo)
-    vpTranslationVector bdto(cmd_in_body.linear[0], cmd_in_body.linear[1], cmd_in_body.linear[2]);
-    vpRxyzVector bdro(cmd_in_body.angular[0], cmd_in_body.angular[1], cmd_in_body.angular[2]);
-    vpRotationMatrix bdRo(bdro);
-    //pose of the object wrt the body
-    vpHomogeneousMatrix bdMo(bdto, bdRo);
-
-    //bdMo is the desired pose of the object in the body frame
-    //cdMo is the desired pose of the object in the camera frame
-    //cMb is the transformation matrix of the body in the camera frame
-    cdMo = cMb * bdMo;
 }
 
 vpMatrix Task::getJacobianFromExpectedInputs(visp::expectedInputs expected_inputs)

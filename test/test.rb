@@ -140,7 +140,8 @@ describe 'visp::Task checking' do
     data = assert_has_one_new_sample cmd_out,1 
 
     assert((data.linear[0] > 0) && (data.linear[1] < 0) && (data.linear[2] > 0), 
-      "the result is not the expected when the object is on the first quadrant")
+      "the result is not the expected when the object is on the first quadrant
+      are #{data.linear[0]}, #{data.linear[1]}, #{data.linear[2]}")
   end
 
   it 'if visual feature are on the second quadrant' do

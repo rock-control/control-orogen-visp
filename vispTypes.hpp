@@ -69,8 +69,10 @@ namespace visp
      */
     struct saturationValues
     {
-        base::Vector3d linear;
-        base::Vector3d angular;
+        base::Vector3d linear_max;
+        base::Vector3d angular_max;
+        base::Vector3d linear_min;
+        base::Vector3d angular_min;
     };
 
     /** Stores the information of possible 
