@@ -38,12 +38,6 @@ expected_inputs:
   - true 
 # Set the gain of the visual controller
 gain: 0.1
-# Marker size
-object_height: 0.4
-object_width: 0.4
-# Set a rotation (in deg)  on the expected input, useful when the corners are
-# not given on the expected default order.
-rotation_around_z: 0.0
 # Set the maximum absolute value for the output ports
 saturation:
   linear_min:
@@ -73,10 +67,14 @@ scaling: 1.0
 static_transformations: []
 # In case of multiple detected objets, this properties set the target object
 # in which the robot will perform the visual servoing
-target_identifier: ''
+desired_target: 'apriltags_20'
 # In case of multiple detected objets, this properties set the target object
 # in which the robot will perform the visual servoing
-target_list: []
+target_list:
+ - identifier: 'apriltags_20'
+   rotation_around_z: 0.0
+   width: 0.4
+   height: 0.4
 # Maximum time in seconds the transformer will wait until it starts dropping samples
 transformer_max_latency: 0.1
 # Minimum system time in seconds between two updates of the status ports

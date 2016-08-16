@@ -9,7 +9,7 @@
  * which case you do not need this file
  */
 
-namespace visp 
+namespace visp
 {
     /* List of the three availables visual servoing architecures
      * IBVS: Image-based visual servoing
@@ -57,7 +57,7 @@ namespace visp
         base::samples::RigidBodyState current_pose;
         base::Time timestamp;
     };
-    
+
     struct expectedInputs
     {
         bool linear[3];
@@ -75,8 +75,13 @@ namespace visp
         base::Vector3d angular_min;
     };
 
-    /** Stores the information of possible 
-     *  targets. 
+    /** Stores the information of possible
+     *  targets.
+     *  height - object height
+     *  width - object width
+     *  rotation_around_z - rotation (in deg)  on the expected input,
+     *                      useful when the corners are not given on
+     *                      the expected default order.
      */
     struct targetObjectParameters
     {

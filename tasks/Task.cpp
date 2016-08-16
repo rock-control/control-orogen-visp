@@ -30,30 +30,28 @@ bool Task::configureHook()
     if (! TaskBase::configureHook())
         return false;
 
-    //Set the target_list
+    //Set the target_list and the desired target
     target_list = _target_list.get();
+    desired_target = _desired_target.get();
 
     // Initialize camera parameters.
-    // The library desconsider the tangencial values, that's why only the
-    // radial values are informed.
     frame_helper::CameraCalibration cal = _camera_parameters.get();
     double scaling = _scaling.get();
-    if(scaling != 1.0)
-    {
-        cal.fx = scaling * cal.fx;
-        cal.fy = scaling * cal.fy;
-        cal.cx = scaling * cal.cx;
-        cal.cy = scaling * cal.cy;
-        cal.height = scaling * cal.height;
-        cal.width = scaling * cal.width;
-    }
+    cal.fx = scaling * cal.fx;
+    cal.fy = scaling * cal.fy;
+    cal.cx = scaling * cal.cx;
+    cal.cy = scaling * cal.cy;
+    cal.height = scaling * cal.height;
+    cal.width = scaling * cal.width;
+    // The library desconsider the tangencial values, that's why only the
+    // radial values are informed.
     cam_cal = vpCameraParameters(cal.fx, cal.fy,cal.cx,cal.cy);
 
     //Center of the target (reference point)
     P.setWorldCoordinates(0, 0, 0);
 
     // Define the task
-    task.setServo(vpServo::EYEINHAND_L_cVe_eJe) ;
+    task.setServo(vpServo::EYEINHAND_L_cVe_eJe);
     task.setInteractionMatrixType(vpServo::CURRENT, vpServo::PSEUDO_INVERSE);
 
     switch(_architecture.get().mode)
@@ -74,19 +72,18 @@ bool Task::configureHook()
     expected_inputs = _expected_inputs.get();
     // Set the Jacobian (expressed in the end-effector frame)
     // it depends of the desired control dof
-    eJe = getJacobianFromExpectedInputs(expected_inputs);
+    eJe = jacobianFromExpectedInputs(expected_inputs);
     task.set_eJe(eJe);
 
     // Set the pose transformation between the camera and the robot frame
     Eigen::Affine3d body2camera;
     _body2camera.get(base::Time::now(), body2camera);
 
-    //Computes the Velocity Twist Matrix from the spatial transformation between the camera and the robot
-    //translation
+    // Computes the Velocity Twist Matrix from the spatial
+    // transformation between the camera and the robot
     vpTranslationVector ctb(body2camera.translation()[0],
-            body2camera.translation()[1],
-            body2camera.translation()[2]);
-    //rotation
+                            body2camera.translation()[1],
+                            body2camera.translation()[2]);
     base::Quaterniond q(body2camera.rotation());
     vpRotationMatrix cRb(vpQuaternionVector(q.x(), q.y(), q.z(), q.w()));
 
@@ -111,16 +108,14 @@ void Task::updateHook()
     TaskBase::updateHook();
 
     //read input ports
-    std::vector<apriltags::VisualFeaturePoint> corners_vector;
-    bool no_corners = (_marker_corners.read(corners_vector) != RTT::NewData);
-    bool no_setpoint = (_cmd_in.read(setpoint) == RTT::NoData);
+    Points corners;
 
     //set the state CONTROLLING only if there is setpoint and detected corners
-    if (no_corners)
+    if (!readCorners(corners, desired_target))
     {
         state(WAITING_CORNERS);
     }
-    else if (no_setpoint)
+    else if (!readSetpoint(setpoint))
     {
         state(WAITING_SETPOINT);
     }
@@ -129,43 +124,40 @@ void Task::updateHook()
         state(CONTROLLING);
     }
 
-    if (!(state() == CONTROLLING))
+    if (state() != CONTROLLING)
     {
+        // write a vector of zeros in the output port
+        // if the state is not controlling
         vpColVector v(6,0);
         writeVelocities(v);
+        return;
     }
-    else
-    {
-        // filter the corners of an desired target
-        apriltags::VisualFeaturePoint corners;
-        filterTarget(corners_vector, target_identifier, corners);
 
-        // transforms the setpoint of object in the body frame to the camera
-        // Sets the desired position of the visual feature (reference point)
-        vpHomogeneousMatrix cdMo;
-        cdMo = updateDesiredPose(setpoint);
+    // transforms the setpoint from the body frame to the camera frame and
+    // build the Homogeneus Matrix of the desired object pose in the camera
+    // frame
+    vpHomogeneousMatrix cdMo = updateDesiredPose(setpoint);
 
-        //if no target is informed, change the state and return
-        updateTargetParameters(target_identifier);
-        updateFeaturesHVS(corners, cdMo);
+    // update the target attributes according to the desired target and update
+    // the visual features given the detected corners and the desired pose.
+    updateFeaturesHVS(corners, cdMo);
 
-        // update eJe
-        task.set_eJe(eJe);
+    // update eJe (required for each loop)
+    task.set_eJe(eJe);
 
-        // Set the gain
-        setGain();
+    // Set the gain
+    setGain(_gain.get(), _adaptive_gains.get(), _use_adaptive_gain.get());
 
-        // Compute the visual servoing skew vector
-        vpColVector v;
-        task.set_cVe(cVb);
-        v = task.computeControlLaw() ;
+    // Compute the visual servoing skew vector
+    vpColVector v;
+    task.set_cVe(cVb);
+    v = task.computeControlLaw() ;
 
-        // Compute the norm-2 of the error vector
-        ctrl_state.error = vpMath::sqr((task.getError()).sumSquare());
+    // Compute the norm-2 of the error vector
+    ctrl_state.error = vpMath::sqr((task.getError()).sumSquare());
 
-        writeVelocities(v);
-        _controller_state.write(ctrl_state);
-    }
+    writeVelocities(v);
+    _controller_state.write(ctrl_state);
 }
 
 void Task::errorHook()
@@ -185,46 +177,44 @@ void Task::cleanupHook()
     task.kill();
 }
 
-void Task::updateFeaturesHVS(apriltags::VisualFeaturePoint corners,const vpHomogeneousMatrix& cdMo)
+void Task::updateFeaturesHVS(Points const &corners, vpHomogeneousMatrix const &cdMo)
 {
-    //  Compute the initial pose
-    pose.clearPoint();
-
+    //  Assign the corners to the vpPose
+    vpPose pose;
     for (int i=0 ; i < 4 ; i++)
     {
-        base::Vector2d aux;
-        aux = corners.points[i];
-        //vpImagePoint is instanciated using (v,u) instead of (u,v)
-        vpImagePoint a(aux[1],aux[0]);
         double x,y;
+        //vpImagePoint is instanciated using (v,u) instead of (u,v)
+        vpImagePoint a(corners.points[i][1], corners.points[i][0]);
         vpPixelMeterConversion::convertPoint(cam_cal,a,x,y);
         point[i].set_x(x);
         point[i].set_y(y);
         pose.addPoint(point[i]) ;
     }
 
+    //compute the pose of the object in the camera frame
+    vpHomogeneousMatrix cMo;
     pose.computePose(vpPose::LAGRANGE, cMo);
     pose.computePose(vpPose::VIRTUAL_VS, cMo);
-
-    // apply a rotation around the z on the camera frame
-    vpHomogeneousMatrix rot(0, 0, 0, 0, 0, vpMath::rad(rotation_around_z));
-
-    cMo = cMo * rot;
     //compute the "quality" of the result
     ctrl_state.residual = pose.computeResidual(cMo);
 
-    //////////////////////////////
-    // Update Feature 1 - p    //
-    //////////////////////////////
+    // apply a rotation around the z on the camera frame
+    vpHomogeneousMatrix rot(0, 0, 0, 0, 0, vpMath::rad(rotation_around_z));
+    cMo = cMo * rot;
+
+    /**
+     *  Update Feature 1 - p
+     */
     // Sets the current position of the visual feature
     P.track(cMo);
 
     ctrl_state.current_pose = convertToRbs(cMo);
     vpFeatureBuilder::create(p, P);
 
-    //////////////////////////////
-    // Update Feature 2 - depth //
-    //////////////////////////////
+    /**
+     *  Update Feature 2 - depth
+     */
 
     //Takes the features, calculate the intersection of the diagonals of the square and
     //given the camera parameters, retrieve the coordinates in meters.
@@ -233,23 +223,21 @@ void Task::updateFeaturesHVS(apriltags::VisualFeaturePoint corners,const vpHomog
 
     for (int i=0; i< 4; i++)
     {
-        base::Vector2d aux;
-        aux = corners.points[i];
         //according to vpImagePoint documentation (i,j) is equivalent to (v,u)
-        cog[i].set_ij(aux[1], aux[0]);
+        cog[i].set_ij(corners.points[i][1], corners.points[i][0]);
     }
 
     // Compute the coordinates of the 2D reference point from the
     // intersection of the diagonals of the square
-    double a1 = (cog[0].get_i()- cog[2].get_i()) /
-        (cog[0].get_j()- cog[2].get_j());
-    double a2 = (cog[1].get_i()- cog[3].get_i()) /
-        (cog[1].get_j()- cog[3].get_j());
+    double a1 = (cog[0].get_i() - cog[2].get_i()) /
+                (cog[0].get_j() - cog[2].get_j());
+    double a2 = (cog[1].get_i() - cog[3].get_i()) /
+                (cog[1].get_j() - cog[3].get_j());
     double b1 = cog[0].get_i() - a1*cog[0].get_j();
     double b2 = cog[1].get_i() - a2*cog[1].get_j();
 
-    refP.set_j( (b1-b2) / (a2-a1) );
-    refP.set_i( a1*refP.get_j() + b1 );
+    refP.set_j((b1-b2) / (a2-a1));
+    refP.set_i(a1*refP.get_j() + b1);
     double x,y;
     vpPixelMeterConversion::convertPoint(cam_cal, refP, x, y);
 
@@ -259,19 +247,18 @@ void Task::updateFeaturesHVS(apriltags::VisualFeaturePoint corners,const vpHomog
     p.set_xyZ(x, y, Z);
     depth.buildFrom(P.get_x(), P.get_y(), Z, log(Z/Zd));
 
-    //////////////////////////////
-    // Update Feature 3 - t, tu //
-    //////////////////////////////
-    cdMc = cdMo*cMo.inverse();
+    /**
+     *  Update Feature 3 - t, tu
+     */
+    vpHomogeneousMatrix cdMc = cdMo*cMo.inverse();
     t.buildFrom(cdMc);
     tu.buildFrom(cdMc);
-
 }
 
 vpHomogeneousMatrix Task::updateDesiredPose(base::LinearAngular6DCommand setpoint)
 {
     // Set the input command to their default values when they are not expected.
-    // This is required to a valide vpHomogeneousMatrix creation, since non-expected
+    // This is required to create a valid vpHomogeneousMatrix, since non-expected
     // inputs are NaN.
     // Given that the object frame's z-axis points to the oposite side of the body
     // frame's x-axis. The object's x and y axis are in such way that in order
@@ -283,23 +270,20 @@ vpHomogeneousMatrix Task::updateDesiredPose(base::LinearAngular6DCommand setpoin
 
     for (int i = 0; i < 3; ++i)
     {
-        // linear
         if (!expected_inputs.linear[i])
-        {
             setpoint.linear[i] = default_linear_values[i];
-        }
-        // angular
+
         if (!expected_inputs.angular[i])
-        {
             setpoint.angular[i] = default_angular_values[i];
-        }
     }
 
     //create a vpHomogeneousMatrix of the object desired position wrt body (bdMo)
-    vpTranslationVector bdto(setpoint.linear[0], setpoint.linear[1], setpoint.linear[2]);
-    vpRxyzVector bdro(setpoint.angular[0], setpoint.angular[1], setpoint.angular[2]);
-    vpRotationMatrix bdRo(bdro);
-    //desired pose of the object wrt the body
+    vpTranslationVector bdto(setpoint.linear[0],
+                             setpoint.linear[1],
+                             setpoint.linear[2]);
+    vpRotationMatrix bdRo(vpRxyzVector(setpoint.angular[0],
+                                       setpoint.angular[1],
+                                       setpoint.angular[2]));
     vpHomogeneousMatrix bdMo(bdto, bdRo);
 
     //bdMo is the desired pose of the object in the body frame
@@ -316,24 +300,23 @@ vpHomogeneousMatrix Task::updateDesiredPose(base::LinearAngular6DCommand setpoin
     return cdMo;
 }
 
-void Task::setGain()
+void Task::setGain(double gain, visp::adaptiveGains const &adaptive_gains, bool use_adaptive)
 {
-    if (_use_adaptive_gain.get())
+    if (!use_adaptive)
     {
-        vpAdaptiveGain  lambda;
-        lambda.initStandard(_adaptive_gains.get().gain_at_zero,
-                _adaptive_gains.get().gain_at_infinity,
-                _adaptive_gains.get().slope_at_zero);
-
-        task.setLambda(lambda) ;
+        task.setLambda(gain);
     }
     else
     {
-        task.setLambda(_gain.get());
+        vpAdaptiveGain lambda;
+        lambda.initStandard(adaptive_gains.gain_at_zero,
+                            adaptive_gains.gain_at_infinity,
+                            adaptive_gains.slope_at_zero);
+        task.setLambda(lambda);
     }
 }
 
-void Task::writeVelocities(vpColVector v)
+void Task::writeVelocities(vpColVector const &v)
 {
     base::LinearAngular6DCommand vel;
     visp::saturationValues sat = _saturation.get();
@@ -347,20 +330,17 @@ void Task::writeVelocities(vpColVector v)
         // write NaN on the non-desirable outputs in order to
         // keep the consistence with the other controllers
         if (!expected_inputs.linear[i])
-        {
             vel.linear[i] = base::NaN<double>();
-        }
+
         if (!expected_inputs.angular[i])
-        {
             vel.angular[i] = base::NaN<double>();
-        }
     }
 
     vel.time = ctrl_state.timestamp;
     _cmd_out.write(vel);
 }
 
-base::samples::RigidBodyState Task::convertToRbs(vpHomogeneousMatrix pose)
+base::samples::RigidBodyState Task::convertToRbs(vpHomogeneousMatrix pose) const
 {
     base::samples::RigidBodyState rbs;
 
@@ -376,7 +356,7 @@ base::samples::RigidBodyState Task::convertToRbs(vpHomogeneousMatrix pose)
     return rbs;
 }
 
-vpMatrix Task::getJacobianFromExpectedInputs(visp::expectedInputs expected_inputs)
+vpMatrix Task::jacobianFromExpectedInputs(visp::expectedInputs const &expected_inputs) const
 {
     vpMatrix eJe;
     eJe.eye(6);
@@ -385,6 +365,7 @@ vpMatrix Task::getJacobianFromExpectedInputs(visp::expectedInputs expected_input
     {
         if (!expected_inputs.linear[i])
             eJe[i][i] = 0;
+
         if (!expected_inputs.angular[i])
             eJe[i+3][i+3] = 0;
     }
@@ -392,63 +373,58 @@ vpMatrix Task::getJacobianFromExpectedInputs(visp::expectedInputs expected_input
     return eJe;
 }
 
-bool Task::filterTarget(std::vector<apriltags::VisualFeaturePoint> corners_vector, std::string target_identifier, apriltags::VisualFeaturePoint &corners)
+bool Task::readSetpoint(base::LinearAngular6DCommand& setpoint)
 {
-    if (corners_vector.size() == 0)
-    {
+    if (_cmd_in.read(setpoint) == RTT::NoData)
         return false;
-    }
-    else if (target_identifier == "")
-    {
-        ctrl_state.timestamp = corners_vector[0].time;
-        corners = corners_vector[0];
-        return true;
-    }
-    else
-    {
-        for (int i = 0; i < corners_vector.size(); ++i)
-        {
-            if (target_identifier == corners_vector[i].identifier)
-            {
-                ctrl_state.timestamp = corners_vector[i].time;
-                corners = corners_vector[i];
-                return true;
-            }
-        }
-        return false;
-    }
+
+    return true;
 }
 
-bool Task::updateTargetParameters(std::string target_identifier)
+bool Task::readCorners(Points &corners, std::string const &desired_target)
 {
-    if (target_identifier == "")
-    {
-        //update object size
-        setObjectSize(_object_width.get(), _object_height.get());
-        //update rotation
-        rotation_around_z = _rotation_around_z.get();
-        return true;
-    }
-    else
-    {
-        for (int i = 0; i < target_list.size(); ++i)
-        {
-            if(target_list[i].identifier == target_identifier)
-            {
-                //update the size of the object
-                setObjectSize(target_list[i].width, target_list[i].height);
-                //update the rotation
-                rotation_around_z = target_list[i].rotation_around_z;
-
-                //set the properties
-                _object_height.set(target_list[i].width);
-                _object_width.set(target_list[i].height);
-                _rotation_around_z.set(target_list[i].rotation_around_z);
-                return true;
-            }
-        }
+    PointsVector corners_vector;
+    if (_marker_corners.read(corners_vector) != RTT::NewData)
         return false;
+
+    for (int i = 0; i < corners_vector.size(); ++i)
+    {
+        if (corners_vector[i].identifier == desired_target)
+        {
+            // update desired target parameters parameters.
+            // It will throw an exeption if the desired target
+            // is not in the target list.
+            updateTargetParameters(desired_target);
+
+            // return the corners of the desired target
+            corners = corners_vector[i];
+            ctrl_state.timestamp = corners_vector[i].time;
+            return true;
+        }
     }
+
+    // Return false if the corners_vector is zero or the desired target
+    // is not in the corners vector (not detected).
+    return false;
+}
+
+void Task::updateTargetParameters(std::string const &desired_target)
+{
+    //sweep the target list until match the target identifier
+    for (int i = 0; i < target_list.size(); ++i)
+    {
+        if(target_list[i].identifier == desired_target)
+        {
+            //update the size of the object
+            setObjectSize(target_list[i].width, target_list[i].height);
+            //update the rotation
+            rotation_around_z = target_list[i].rotation_around_z;
+            return;
+        }
+    }
+
+    throw std::invalid_argument("There is no target identifier"
+                                "in the informed target list");
 }
 
 void Task::setObjectSize(double object_width, double object_height)
@@ -462,8 +438,8 @@ void Task::setObjectSize(double object_width, double object_height)
     point[3].setWorldCoordinates(-w, -h, 0);
 }
 
-bool Task::setTarget_identifier(std::string const & value)
+bool Task::setDesired_target(std::string const &value)
 {
-    this->target_identifier = value;
+    this->desired_target = value;
     return true;
 }

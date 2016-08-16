@@ -27,7 +27,7 @@ describe 'visp::Task checking' do
     corners_samples = task.marker_corners.new_sample
     aux = Types::Apriltags::VisualFeaturePoint.new
     aux.time = Time.now
-    aux.identifier = "apriltags_1"
+    aux.identifier = "apriltags_20"
     for i in 0...4
       aux.points << Types::Base::Vector2d.new
     end
