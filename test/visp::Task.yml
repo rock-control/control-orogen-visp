@@ -1,0 +1,83 @@
+--- name:default
+# Switch between adaptive or manual gain
+adaptive_gains:
+  gain_at_zero: 0.0
+  gain_at_infinity: 0.0
+  slope_at_zero: 0.0
+# Select the visual servoing architecture: BVS, PBVS or HVS(2 1/2D)
+architecture:
+  mode: :HVS
+# the global name that should be used for the internal body frame
+body_frame: body
+# the global name that should be used for the internal camera frame
+camera_frame: camera
+# Camera calibration parameters
+camera_parameters:
+  fx: 1991.8
+  cx: 972.148
+  fy: 1993.069
+  cy: 1067.18
+  d0: 0.08653039
+  d1: 0.1632879
+  d2: -0.000002090889
+  d3: -0.001396539
+  width: 2040
+  height: 2040
+  ex: .nan
+  ey: .nan
+  fisheye: false
+# Defines the controlled degrees of freedom
+expected_inputs:
+  linear:
+  - true 
+  - true 
+  - true 
+  angular:
+  - false 
+  - false
+  - true 
+# Set the gain of the visual controller
+gain: 0.1
+# Set the maximum absolute value for the output ports
+saturation:
+  linear_min:
+    data:
+    - -0.5
+    - -0.5
+    - -0.5
+  angular_min:
+    data:
+    - -0.3
+    - -0.3
+    - -0.3
+  linear_max:
+    data:
+    - 0.5
+    - 0.5
+    - 0.5
+  angular_max:
+    data:
+    - 0.3
+    - 0.3
+    - 0.3
+# Adjust the calibration parameters if the image was scaled in the feature
+# provider
+scaling: 1.0
+# list of static transformations
+static_transformations: []
+# In case of multiple detected objets, this properties set the target object
+# in which the robot will perform the visual servoing
+desired_target: 'apriltags_20'
+# In case of multiple detected objets, this properties set the target object
+# in which the robot will perform the visual servoing
+target_list:
+ - identifier: 'apriltags_20'
+   rotation_around_z: 0.0
+   width: 0.4
+   height: 0.4
+# Maximum time in seconds the transformer will wait until it starts dropping samples
+transformer_max_latency: 0.1
+# Minimum system time in seconds between two updates of the status ports
+transformer_status_period: 1.0
+# Switch between adaptive or manual gain
+use_adaptive_gain: false

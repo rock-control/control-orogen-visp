@@ -7,6 +7,7 @@ import_types_from "base"
 import_types_from "frame_helper/Calibration.h"
 import_types_from "vispTypes.hpp"
 import_types_from "auv_control"
+import_types_from "apriltags"
 
 task_context "Task" do
 needs_configuration
@@ -21,20 +22,32 @@ needs_configuration
     property("adaptive_gains", "visp/adaptiveGains")
     # Camera calibration parameters
     property("camera_parameters", "frame_helper/CameraCalibration")
-    # Marker size
-    property("marker_size", "double")
+    # Defines the controlled degrees of freedom
+    property("expected_inputs", "visp::expectedInputs")
+    # Set the maximum absolute value for the output ports
+    property("saturation", "visp::saturationValues")
+    # In case of multiple detected objets, this properties set the target object
+    # in which the robot will perform the visual servoing
+    property("target_list", "/std/vector<visp::targetObjectParameters>")
+    # In case of multiple detected objects, this property set the target object
+    # in which the robot will perform the visual servoing
+    property("desired_target", "string", "").dynamic
+    # Adjust the calibration parameters if the image was scaled in the feature
+    # provider
+    property("scaling", "double", 1.0)
 
     # Position setpoint in respect to the marker frame
     input_port "cmd_in", "/base/LinearAngular6DCommand"
     # Input data to the controlller
-    input_port "marker_corners", "std/vector<base::Vector2d>"
+    input_port "marker_corners", "std/vector<apriltags/VisualFeaturePoint>"
     # The control signal, velocities.
     output_port "cmd_out", "base/LinearAngular6DCommand"
     # Output relevant information about the controller
     # such as error, residual, desired and current position
     output_port "controller_state", "visp/controllerState"
 
-    port_driven "marker_corners"
+    #update the task every 10ms
+    periodic 0.01
 
     transformer do
         transform 'body', 'camera'
@@ -44,4 +57,3 @@ needs_configuration
     runtime_states :WAITING_SETPOINT, :WAITING_CORNERS, :CONTROLLING
 
 end
-

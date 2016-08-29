@@ -19,4 +19,5 @@
   <depend package="perception/frame_helper" />
   <depend package="control/orogen/auv_control" />
   <depend package="drivers/orogen/transformer" />
+  <depend package="perception/orogen/apriltags" />
 </package>
