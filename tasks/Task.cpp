@@ -113,11 +113,13 @@ void Task::updateHook()
     //set the state CONTROLLING only if there is setpoint and detected corners
     if (!readCorners(corners, desired_target))
     {
-        state(WAITING_CORNERS);
+        if (state() != WAITING_CORNERS)
+            state(WAITING_CORNERS);
     }
     else if (!readSetpoint(setpoint))
     {
-        state(WAITING_SETPOINT);
+        if (state() != WAITING_SETPOINT)
+            state(WAITING_SETPOINT);
     }
     else if (state() != CONTROLLING)
     {
