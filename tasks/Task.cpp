@@ -2,8 +2,8 @@
 
 
 #include "Task.hpp"
-#include <visp/vpPixelMeterConversion.h>
-#include <visp/vpFeatureBuilder.h>
+#include <visp3/core/vpPixelMeterConversion.h>
+#include <visp3/visual_features/vpFeatureBuilder.h>
 
 using namespace visp;
 

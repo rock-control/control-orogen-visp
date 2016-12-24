@@ -5,14 +5,14 @@
 #define VISP_TASK_TASK_HPP
 
 #include "visp/TaskBase.hpp"
-#include <visp/vpCameraParameters.h>
-#include <visp/vpServo.h>
-#include <visp/vpPoint.h>
-#include <visp/vpPose.h>
-#include <visp/vpFeaturePoint.h>
-#include <visp/vpFeatureDepth.h>
-#include <visp/vpFeatureThetaU.h>
-#include <visp/vpFeatureTranslation.h>
+#include <visp3/core/vpCameraParameters.h>
+#include <visp3/vs/vpServo.h>
+#include <visp3/core/vpPoint.h>
+#include <visp3/vision/vpPose.h>
+#include <visp3/visual_features/vpFeaturePoint.h>
+#include <visp3/visual_features/vpFeatureDepth.h>
+#include <visp3/visual_features/vpFeatureThetaU.h>
+#include <visp3/visual_features/vpFeatureTranslation.h>
 #include <apriltags/apriltagsTypes.hpp>
 
 
