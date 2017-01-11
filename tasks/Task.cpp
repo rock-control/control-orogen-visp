@@ -128,10 +128,6 @@ void Task::updateHook()
 
     if (state() != CONTROLLING)
     {
-        // write a vector of zeros in the output port
-        // if the state is not controlling
-        vpColVector v(6,0);
-        writeVelocities(v);
         return;
     }
 
