@@ -46,8 +46,7 @@ needs_configuration
     # such as error, residual, desired and current position
     output_port "controller_state", "visp/controllerState"
 
-    #update the task every 10ms
-    periodic 0.01
+    port_driven 'marker_corners'
 
     transformer do
         transform 'body', 'camera'
