@@ -25,11 +25,11 @@ describe 'visp::Task checking' do
   def create_corners(p1, p2, p3, p4)
     #writing the markers
     corners_samples = task.marker_corners.new_sample
-    aux = Types::Apriltags::VisualFeaturePoint.new
+    aux = Types.apriltags.VisualFeaturePoint.new
     aux.time = Time.now
     aux.identifier = "apriltags_20"
     for i in 0...4
-      aux.points << Types::Base::Vector2d.new
+      aux.points << Types.base.Vector2d.new
     end
     aux.points[0]["data"] = p1 
     aux.points[1]["data"] = p2
@@ -39,17 +39,13 @@ describe 'visp::Task checking' do
     corners_samples
   end
 
-  #it 'no camera parameters' do
-  #it 'object on the first quadrant' do
+  def assert_task_state(task, expected_state)
+      task_state = task.state_reader.read
+      sleep(0.01)
+      assert((task_state == expected_state), "it is expected #{expected_state} 
+             state, however it is receiving #{task_state}")
+  end
 
-  #it 'if there is no visible markers' do
-  #  task.apply_conf_file("visp::Task.yml")
-
-  #  task.configure
-  #  task.start
-
-  #  assert_state_change(task) {|state| state == :WAITING_CORNERS}
-  #end
 
 
   it 'if no corners are informed' do
@@ -59,11 +55,9 @@ describe 'visp::Task checking' do
     
     #writing the setpoint
     setpoint_samples = create_setpoint(1, 1, 1, 0, 0, 0)
-
-    sleep(0.01)
     cmd_in.write setpoint_samples
-    assert((task.state_reader.read == :WAITING_CORNERS), "the state was supposed to be
-    :WAITING_CORNERS, however it is #{task.state_reader.read}")
+
+    assert_task_state(task, :WAITING_CORNERS)
   end
 
   it 'if no setpoint is informed' do
@@ -71,13 +65,10 @@ describe 'visp::Task checking' do
     task.configure
     task.start
 
-    #creating the corner_samples
+    #writing corners
     corners_samples = create_corners([1400, 600], [1400, 400], [1600, 400], [1600, 600])
-
     marker_corners.write corners_samples
-    sleep(0.01)
-    assert((task.state_reader.read == :WAITING_SETPOINT), "the state was supposed to be
-    :WAITING_SETPOINT, however it is #{task.state_reader.read}")
+    assert_task_state(task, :WAITING_SETPOINT)
   end
 
   it 'if there is corners and setpoint' do
@@ -85,42 +76,35 @@ describe 'visp::Task checking' do
     task.configure
     task.start
 
-    #creating the corner_samples
     corners_samples = create_corners([1400, 600], [1400, 400], [1600, 400], [1600, 600])
-    #creating setpoint
     setpoint_samples = create_setpoint(1, 1, 1, 0, 0, 0)
 
-    marker_corners.write corners_samples
+    #writing ports
+    #NOTE: Since the component is triggered by the marker_corners input port
+    #it has to be written after the setpoint
     cmd_in.write setpoint_samples
-    sleep(0.01)
-    assert((task.state_reader.read == :CONTROLLING), "the state was supposed to be
-    :CONTROLLING, however it is #{task.state_reader.read}")
-
+    marker_corners.write corners_samples
+    assert_task_state(task, :CONTROLLING)
   end
 
   it 'if multiple state changes works as expected' do
     task.apply_conf_file("visp::Task.yml")
     task.configure
     task.start
-    #creating the corner_samples
+
     corners_samples = create_corners([1400, 600], [1400, 400], [1600, 400], [1600, 600])
-    #creating setpoint
     setpoint_samples = create_setpoint(1, 1, 1, 0, 0, 0)
 
-    sleep(0.01)
-    assert((task.state_reader.read == :WAITING_CORNERS), "the state was supposed to be
-    :WAITING_CORNERS, however it is #{task.state_reader.read}")
+    assert_task_state(task, :WAITING_CORNERS)
 
     marker_corners.write corners_samples
-    sleep(0.01)
-    assert((task.state_reader.read == :WAITING_SETPOINT), "the state was supposed to be
-    :WAITING_SETPOINT, however it is #{task.state_reader.read}")
+    assert_task_state(task, :WAITING_SETPOINT)
 
-    marker_corners.write corners_samples
+    #NOTE: Since the component is triggered by the marker_corners input port
+    #it has to be written after the setpoint
     cmd_in.write setpoint_samples
-    sleep(0.01)
-    assert((task.state_reader.read == :CONTROLLING), "the state was supposed to be
-    :CONTROLLING, however it is #{task.state_reader.read}")
+    marker_corners.write corners_samples
+    assert_task_state(task, :CONTROLLING)
 
   end
 
@@ -134,10 +118,11 @@ describe 'visp::Task checking' do
     #creating setpoint
     setpoint_samples = create_setpoint(0, 0, 1, 0, 0, 0)
 
-    marker_corners.write corners_samples
+    #NOTE: Since the component is triggered by the marker_corners input port
+    #it has to be written after the setpoint
     cmd_in.write setpoint_samples
-    sleep(0.01)
-    data = assert_has_one_new_sample cmd_out,1 
+    marker_corners.write corners_samples
+    data = assert_has_one_new_sample cmd_out,5 
 
     assert((data.linear[0] > 0) && (data.linear[1] < 0) && (data.linear[2] > 0), 
       "the result is not the expected when the object is on the first quadrant
@@ -154,9 +139,10 @@ describe 'visp::Task checking' do
     #creating setpoint
     setpoint_samples = create_setpoint(0, 0, 1, 0, 0, 0)
 
-    marker_corners.write corners_samples
+    #NOTE: Since the component is triggered by the marker_corners input port
+    #it has to be written after the setpoint
     cmd_in.write setpoint_samples
-    sleep(0.01)
+    marker_corners.write corners_samples
     data = assert_has_one_new_sample cmd_out,1 
 
     assert((data.linear[0] < 0) && (data.linear[1] < 0) && (data.linear[2] > 0), 
@@ -174,9 +160,10 @@ describe 'visp::Task checking' do
     #creating setpoint
     setpoint_samples = create_setpoint(0, 0, 1, 0, 0, 0)
 
-    marker_corners.write corners_samples
+    #NOTE: Since the component is triggered by the marker_corners input port
+    #it has to be written after the setpoint
     cmd_in.write setpoint_samples
-    sleep(0.01)
+    marker_corners.write corners_samples
     data = assert_has_one_new_sample cmd_out,1 
 
     assert((data.linear[0] < 0) && (data.linear[1] > 0) && (data.linear[2] > 0), 
@@ -194,9 +181,10 @@ describe 'visp::Task checking' do
     #creating setpoint
     setpoint_samples = create_setpoint(0, 0, 1, 0, 0, 0)
 
-    marker_corners.write corners_samples
+    #NOTE: Since the component is triggered by the marker_corners input port
+    #it has to be written after the setpoint
     cmd_in.write setpoint_samples
-    sleep(0.01)
+    marker_corners.write corners_samples
     data = assert_has_one_new_sample cmd_out,1 
 
     assert((data.linear[0] > 0) && (data.linear[1] > 0) && (data.linear[2] > 0), 
@@ -205,5 +193,3 @@ describe 'visp::Task checking' do
   end
 
 end
-
-
