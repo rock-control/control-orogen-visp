@@ -113,11 +113,13 @@ void Task::updateHook()
     //set the state CONTROLLING only if there is setpoint and detected corners
     if (!readCorners(corners, desired_target))
     {
-        state(WAITING_CORNERS);
+        if (state() != WAITING_CORNERS)
+            state(WAITING_CORNERS);
     }
     else if (!readSetpoint(setpoint))
     {
-        state(WAITING_SETPOINT);
+        if (state() != WAITING_SETPOINT)
+            state(WAITING_SETPOINT);
     }
     else if (state() != CONTROLLING)
     {
@@ -126,10 +128,6 @@ void Task::updateHook()
 
     if (state() != CONTROLLING)
     {
-        // write a vector of zeros in the output port
-        // if the state is not controlling
-        vpColVector v(6,0);
-        writeVelocities(v);
         return;
     }
 
@@ -209,7 +207,12 @@ void Task::updateFeaturesHVS(Points const &corners, vpHomogeneousMatrix const &c
     // Sets the current position of the visual feature
     P.track(cMo);
 
-    ctrl_state.current_pose = convertToRbs(cMo);
+    //write the body pose in respect to the object frame
+
+    vpHomogeneousMatrix bMo = cMb.inverse()*cMo;
+    ctrl_state.current_pose = convertToRbs(bMo);
+    ctrl_state.current_pose.time = ctrl_state.timestamp;
+
     vpFeatureBuilder::create(p, P);
 
     /**
@@ -290,7 +293,8 @@ vpHomogeneousMatrix Task::updateDesiredPose(base::LinearAngular6DCommand setpoin
     //cdMo is the desired pose of the object in the camera frame
     //cMb is the transformation matrix of the body in the camera frame
     vpHomogeneousMatrix cdMo = cMb * bdMo;
-    ctrl_state.desired_pose = convertToRbs(cdMo);
+    ctrl_state.desired_pose = convertToRbs(bdMo);
+    ctrl_state.desired_pose.time = ctrl_state.timestamp;
 
     //update the desired features Zd and pd
     P.track(cdMo);
