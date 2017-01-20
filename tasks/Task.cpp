@@ -92,7 +92,9 @@ bool Task::configureHook()
     //build and set the velocity twist matrix
     cVb.buildFrom(cMb);
     task.set_cVe(cVb);
-
+    
+    exp_decay_factor = _exp_decay_factor.get();
+    task.setMu(exp_decay_factor);
     return true;
 }
 
@@ -150,7 +152,7 @@ void Task::updateHook()
     vpColVector v;
     task.set_cVe(cVb);
 
-    if(_exp_decay_factor.get() == 0)
+    if(exp_decay_factor == 0)
         v = task.computeControlLaw();
     else
     {
@@ -164,7 +166,6 @@ void Task::updateHook()
             elapsed_time.fromSeconds(0);
         }
 
-        task.setMu(_exp_decay_factor.get());
         v = task.computeControlLaw(elapsed_time.toSeconds());
     }
 
@@ -465,3 +466,10 @@ bool Task::setDesired_target(std::string const &value)
     return true;
 }
 
+bool Task::setExp_decay_factor(double value)
+{
+    exp_decay_factor = value;
+    task.setMu(exp_decay_factor);
+
+    return (visp::TaskBase::setExp_decay_factor(value));
+}

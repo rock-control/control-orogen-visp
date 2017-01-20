@@ -44,6 +44,7 @@ namespace visp{
         visp::controllerState ctrl_state;
         base::LinearAngular6DCommand setpoint;
         base::Time start_time;
+        double exp_decay_factor;
 
         vpCameraParameters cam_cal;
         vpServo task;
@@ -140,6 +141,15 @@ namespace visp{
          *  \param string containing the desired target's identifier
          */
         virtual bool setDesired_target(std::string const &value);
+
+        /** Update the exponential decay factor. A value that 
+         *  affects the velocity of the control compensation decay.
+         *  A big value makes the compensation less effective. A
+         *  sugested initial value is 4. 
+         *  \param time constant for the control
+         *         exponential decay.
+         */
+        virtual bool setExp_decay_factor(double value);
 
         public:
         /** TaskContext constructor for Task

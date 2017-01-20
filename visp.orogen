@@ -44,7 +44,7 @@ needs_configuration
     # in the beginning of the task.
     # Set zero to deactivate this term. If used, a suggested initial
     # value is 4.
-    property("exp_decay_factor", "double", 0)
+    property("exp_decay_factor", "double", 0).dynamic
     # Time limit without markers to reset the time on the exponential decay
     # term. NOTE: This is invalid if "exp_decay_factor == 0"
     property("exp_timeout", "/base/Time")
