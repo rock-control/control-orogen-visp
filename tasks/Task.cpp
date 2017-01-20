@@ -149,7 +149,24 @@ void Task::updateHook()
     // Compute the visual servoing skew vector
     vpColVector v;
     task.set_cVe(cVb);
-    v = task.computeControlLaw() ;
+
+    if(_exp_decay_factor.get() == 0)
+        v = task.computeControlLaw();
+    else
+    {
+        if (start_time.isNull())
+            start_time = corners.time;
+
+        base::Time elapsed_time = corners.time - start_time;
+        if(elapsed_time >= _exp_timeout.get())
+        {
+            start_time = corners.time;
+            elapsed_time.fromSeconds(0);
+        }
+
+        task.setMu(_exp_decay_factor.get());
+        v = task.computeControlLaw(elapsed_time.toSeconds());
+    }
 
     // Compute the norm-2 of the error vector
     ctrl_state.error = vpMath::sqr((task.getError()).sumSquare());
@@ -447,3 +464,4 @@ bool Task::setDesired_target(std::string const &value)
     this->desired_target = value;
     return true;
 }
+

@@ -43,6 +43,7 @@ namespace visp{
         visp::expectedInputs expected_inputs;
         visp::controllerState ctrl_state;
         base::LinearAngular6DCommand setpoint;
+        base::Time start_time;
 
         vpCameraParameters cam_cal;
         vpServo task;
