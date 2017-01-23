@@ -267,7 +267,7 @@ vpHomogeneousMatrix Task::updateDesiredPose(base::LinearAngular6DCommand setpoin
     // frame's x-axis. The object's x and y axis are in such way that in order
     // to have a vehicle stable in "d" meters in front of the object, the desired
     // posistion has to be: {x=d, y=0, z=0, roll=-pi/2, pitch=-pi/2, yaw=0}.
-    static const double arr[6] = {0, 0, 0, -M_PI_2, -M_PI_2, 0};
+    static const double arr[6] = {0, 0, 0, -M_PI_2, 0, -M_PI_2};
     std::vector<double> default_linear_values(&arr[0], &arr[0]+3);
     std::vector<double> default_angular_values(&arr[3], &arr[3]+3);
 
@@ -284,9 +284,12 @@ vpHomogeneousMatrix Task::updateDesiredPose(base::LinearAngular6DCommand setpoin
     vpTranslationVector bdto(setpoint.linear[0],
                              setpoint.linear[1],
                              setpoint.linear[2]);
-    vpRotationMatrix bdRo(vpRxyzVector(setpoint.angular[0],
+    vpRotationMatrix bdRo(vpRzyxVector(setpoint.angular[2],
                                        setpoint.angular[1],
-                                       setpoint.angular[2]));
+                                       setpoint.angular[0]));
+
+    //vpRotationMatrix teste(0,0,setpoint.angular[2]);
+    //bdRo = teste*bdRo;
     vpHomogeneousMatrix bdMo(bdto, bdRo);
 
     //bdMo is the desired pose of the object in the body frame
