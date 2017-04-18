@@ -26,15 +26,15 @@ camera_parameters:
   ex: .nan
   ey: .nan
   fisheye: false
-# Defines the controlled degrees of freedom
+ Defines the controlled degrees of freedom
 expected_inputs:
   linear:
   - true 
   - true 
   - true 
   angular:
-  - false 
-  - false
+  - true
+  - true
   - true 
 # Set the gain of the visual controller
 gain: 0.1
@@ -72,7 +72,6 @@ desired_target: 'apriltags_20'
 # in which the robot will perform the visual servoing
 target_list:
  - identifier: 'apriltags_20'
-   rotation_around_z: 0.0
    width: 0.4
    height: 0.4
 # Maximum time in seconds the transformer will wait until it starts dropping samples

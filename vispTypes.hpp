@@ -79,14 +79,10 @@ namespace visp
      *  targets.
      *  height - object height
      *  width - object width
-     *  rotation_around_z - rotation (in deg)  on the expected input,
-     *                      useful when the corners are not given on
-     *                      the expected default order.
      */
     struct targetObjectParameters
     {
         std::string identifier;
-        double rotation_around_z;
         double width;
         double height;
     };
