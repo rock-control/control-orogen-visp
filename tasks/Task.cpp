@@ -197,10 +197,6 @@ void Task::updateFeaturesHVS(Points const &corners, vpHomogeneousMatrix const &c
     //compute the "quality" of the result
     ctrl_state.residual = pose.computeResidual(cMo);
 
-    // apply a rotation around the z on the camera frame
-    vpHomogeneousMatrix rot(0, 0, 0, 0, 0, vpMath::rad(rotation_around_z));
-    cMo = cMo * rot;
-
     /**
      *  Update Feature 1 - p
      */
@@ -260,35 +256,26 @@ void Task::updateFeaturesHVS(Points const &corners, vpHomogeneousMatrix const &c
 
 vpHomogeneousMatrix Task::updateDesiredPose(base::LinearAngular6DCommand setpoint)
 {
-    // Set the input command to their default values when they are not expected.
-    // This is required to create a valid vpHomogeneousMatrix, since non-expected
-    // inputs are NaN.
-    // Given that the object frame's z-axis points to the oposite side of the body
-    // frame's x-axis. The object's x and y axis are in such way that in order
-    // to have a vehicle stable in "d" meters in front of the object, the desired
-    // posistion has to be: {x=d, y=0, z=0, roll=-pi/2, pitch=-pi/2, yaw=0}.
-    static const double arr[6] = {0, 0, 0, -M_PI_2, -M_PI_2, 0};
-    std::vector<double> default_linear_values(&arr[0], &arr[0]+3);
-    std::vector<double> default_angular_values(&arr[3], &arr[3]+3);
-
-    for (int i = 0; i < 3; ++i)
+    for(int i = 0; i < 3; i++)
     {
-        if (!expected_inputs.linear[i])
-            setpoint.linear[i] = default_linear_values[i];
+        if (base::isNaN(setpoint.linear[i]) || base::isNaN(setpoint.angular[i]))
+        {
 
-        if (!expected_inputs.angular[i])
-            setpoint.angular[i] = default_angular_values[i];
+            throw std::invalid_argument(std::string("At least one of the input commands are NaN.") +
+                                        std::string("Visp expects all commands as setpoint."));
+        }
     }
+
 
     //create a vpHomogeneousMatrix of the object desired position wrt body (bdMo)
     vpTranslationVector bdto(setpoint.linear[0],
                              setpoint.linear[1],
                              setpoint.linear[2]);
-    vpRotationMatrix bdRo(vpRxyzVector(setpoint.angular[0],
+    vpRotationMatrix bdRo(vpRzyxVector(setpoint.angular[2],
                                        setpoint.angular[1],
-                                       setpoint.angular[2]));
+                                       setpoint.angular[0]));
     vpHomogeneousMatrix bdMo(bdto, bdRo);
-
+    
     //bdMo is the desired pose of the object in the body frame
     //cdMo is the desired pose of the object in the camera frame
     //cMb is the transformation matrix of the body in the camera frame
@@ -421,8 +408,6 @@ void Task::updateTargetParameters(std::string const &desired_target)
         {
             //update the size of the object
             setObjectSize(target_list[i].width, target_list[i].height);
-            //update the rotation
-            rotation_around_z = target_list[i].rotation_around_z;
             return;
         }
     }
