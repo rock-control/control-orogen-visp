@@ -36,6 +36,19 @@ needs_configuration
     # provider
     property("scaling", "double", 1.0)
 
+    # Given a control law defined by v(t) = A(t)*error(t)-A(0)*error(0)*ext(-u*t)
+    # This property is the time constant "u" that defines the velocity of the
+    # exponential decay. It means that the impact of the term is bigger
+    # when the exp_decay_factor is smaller.
+    # This is used to avoid abrupt changes in the velocities output
+    # in the beginning of the task.
+    # Set zero to deactivate this term. If used, a suggested initial
+    # value is 4.
+    property("exp_decay_factor", "double", 0).dynamic
+    # Time limit without markers to reset the time on the exponential decay
+    # term. NOTE: This is invalid if "exp_decay_factor == 0"
+    property("exp_timeout", "/base/Time")
+
     # Position setpoint in respect to the marker frame
     input_port "cmd_in", "/base/LinearAngular6DCommand"
     # Input data to the controlller

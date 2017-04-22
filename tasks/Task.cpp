@@ -92,7 +92,9 @@ bool Task::configureHook()
     //build and set the velocity twist matrix
     cVb.buildFrom(cMb);
     task.set_cVe(cVb);
-
+    
+    exp_decay_factor = _exp_decay_factor.get();
+    task.setMu(exp_decay_factor);
     return true;
 }
 
@@ -149,7 +151,23 @@ void Task::updateHook()
     // Compute the visual servoing skew vector
     vpColVector v;
     task.set_cVe(cVb);
-    v = task.computeControlLaw() ;
+
+    if(exp_decay_factor == 0)
+        v = task.computeControlLaw();
+    else
+    {
+        if (start_time.isNull())
+            start_time = corners.time;
+
+        base::Time elapsed_time = corners.time - start_time;
+        if(elapsed_time >= _exp_timeout.get())
+        {
+            start_time = corners.time;
+            elapsed_time.fromSeconds(0);
+        }
+
+        v = task.computeControlLaw(elapsed_time.toSeconds());
+    }
 
     // Compute the norm-2 of the error vector
     ctrl_state.error = vpMath::sqr((task.getError()).sumSquare());
@@ -431,4 +449,12 @@ bool Task::setDesired_target(std::string const &value)
 {
     this->desired_target = value;
     return true;
+}
+
+bool Task::setExp_decay_factor(double value)
+{
+    exp_decay_factor = value;
+    task.setMu(exp_decay_factor);
+
+    return (visp::TaskBase::setExp_decay_factor(value));
 }
